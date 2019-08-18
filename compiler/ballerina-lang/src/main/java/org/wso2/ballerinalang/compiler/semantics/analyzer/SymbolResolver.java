@@ -228,7 +228,7 @@ public class SymbolResolver extends BLangNodeVisitor {
             return false;
         }
 
-        if (!isSymbolOwnersSame(symbol, foundSym)) {
+        if (isSymbolOwnersSame(symbol, foundSym)) {
             dlog.error(pos, DiagnosticCode.REDECLARED_SYMBOL, symbol.name);
             return false;
         }
@@ -264,8 +264,10 @@ public class SymbolResolver extends BLangNodeVisitor {
             return false;
         }
 
-        return !Symbols.isFlagOn(Flags.LAMBDA, symbol.flags) ||
-                ((foundSym.owner.tag & SymTag.INVOKABLE) != SymTag.INVOKABLE);
+        // If the symbol being defined is inside a lambda and the existing symbol is defined inside a function, both
+        // symbols are in the same block scope.
+        return Symbols.isFlagOn(symbol.owner.flags, Flags.LAMBDA) &&
+                ((foundSym.owner.tag & SymTag.INVOKABLE) == SymTag.INVOKABLE);
     }
 
     private boolean isSymbolDefinedInRootPkgLvl(BSymbol foundSym) {
