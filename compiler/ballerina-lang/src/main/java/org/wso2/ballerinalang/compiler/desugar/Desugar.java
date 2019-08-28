@@ -593,19 +593,6 @@ public class Desugar extends BLangNodeVisitor {
             bLangSimpleVariable.typeNode = rewrite(bLangSimpleVariable.typeNode, env);
         }
 
-//        for (BLangSimpleVariable param : objectTypeNode.initFunction.requiredParams) {
-//            param.typeNode = rewrite(param.typeNode, env);
-//        }
-//
-//        if (objectTypeNode.initFunction.restParam != null) {
-//            objectTypeNode.initFunction.restParam.typeNode = rewrite(objectTypeNode.initFunction.restParam.typeNode,
-//                                                                     env);
-//        }
-//
-//        if (objectTypeNode.initFunction.returnTypeNode != null) {
-//            objectTypeNode.initFunction.returnTypeNode = rewrite(objectTypeNode.initFunction.returnTypeNode, env);
-//        }
-//
         // Add object level variables to the init function.
         Map<BSymbol, BLangStatement> initFunctionStmts = objectTypeNode.initFunction.initFunctionStmts;
         objectTypeNode.fields.stream()
@@ -614,7 +601,8 @@ public class Desugar extends BLangNodeVisitor {
                 .filter(field -> field.expr != null)
                 .forEachOrdered(field -> {
                     initFunctionStmts.put(field.symbol,
-                            createStructFieldUpdate(objectTypeNode.initFunction, field));
+                                          createStructFieldUpdate(objectTypeNode.initFunction, field,
+                                                                  objectTypeNode.initFunction.receiver.symbol));
                 });
 
         // Adding init statements to the init function.
@@ -634,6 +622,7 @@ public class Desugar extends BLangNodeVisitor {
             bLangSimpleVariable.typeNode = rewrite(bLangSimpleVariable.typeNode, env);
         }
 
+        BVarSymbol receiverSym = recordTypeNode.initFunction.requiredParams.get(0).symbol;
         // Add struct level variables to the init function.
         recordTypeNode.fields.stream()
                 // Only add a field if it is required. Checking if it's required is enough since non-defaultable
@@ -642,8 +631,9 @@ public class Desugar extends BLangNodeVisitor {
                         !Symbols.isOptional(field.symbol))
                 .filter(field -> field.expr != null)
                 .forEachOrdered(field -> {
-                    recordTypeNode.initFunction.initFunctionStmts.put(field.symbol,
-                            createStructFieldUpdate(recordTypeNode.initFunction, field));
+                    BLangAssignment fieldInit = createStructFieldUpdate(recordTypeNode.initFunction, field,
+                                                                        receiverSym);
+                    recordTypeNode.initFunction.initFunctionStmts.put(field.symbol, fieldInit);
                 });
 
         //Adding init statements to the init function.
@@ -659,12 +649,9 @@ public class Desugar extends BLangNodeVisitor {
 
         if (recordTypeNode.isAnonymous && recordTypeNode.isLocal) {
             BLangUserDefinedType userDefinedType = desugarLocalAnonRecordTypeNode(recordTypeNode);
-//            recordTypeNode.symbol.name = names.fromString(userDefinedType.typeName.value);
             createTypeDefinition(recordTypeNode.type, recordTypeNode.type.tsymbol, recordTypeNode);
             env.enclPkg.functions.add(recordTypeNode.initFunction);
-            recordTypeNode.initFunction.symbol.name = names.fromString(Symbols.getAttachedFuncSymbolName(
-                    recordTypeNode.initFunction.receiver.type.tsymbol.name.value,
-                    recordTypeNode.initFunction.name.value));
+            recordTypeNode.desugared = true;
             result = userDefinedType;
             return;
         }
@@ -5694,8 +5681,9 @@ public class Desugar extends BLangNodeVisitor {
         return assignmentStmt;
     }
 
-    private BLangAssignment createStructFieldUpdate(BLangFunction function, BLangSimpleVariable variable) {
-        BLangSimpleVarRef selfVarRef = ASTBuilderUtil.createVariableRef(variable.pos, function.receiver.symbol);
+    private BLangAssignment createStructFieldUpdate(BLangFunction function, BLangSimpleVariable variable,
+                                                    BVarSymbol symbol) {
+        BLangSimpleVarRef selfVarRef = ASTBuilderUtil.createVariableRef(variable.pos, symbol);
         BLangFieldBasedAccess fieldAccess = ASTBuilderUtil.createFieldAccessExpr(selfVarRef, variable.name);
         fieldAccess.symbol = variable.symbol;
         fieldAccess.type = variable.type;

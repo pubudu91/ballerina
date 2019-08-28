@@ -91,6 +91,8 @@ public class Names {
     public static final Name TRX_REMOTE_PARTICIPANT_BEGIN_FUNCTION = new Name("beginRemoteParticipant");
     public static final Name CREATE_INT_RANGE = new Name("createIntRange");
 
+    public static final Name RECORD_SELF = new Name("recordSelf");
+
     public CompilerContext context;
 
     public static Names getInstance(CompilerContext context) {

@@ -414,23 +414,14 @@ public type ObjectGenerator object {
         }
 
         // Invoke the init-function of this type.
-        string initFuncName;
-        string valueClassName;
-        bir:Function?[] attachedFuncs = <bir:Function?[]>typeDef.attachedFuncs;
+        bir:BRecordType recordType = <bir:BRecordType> typeDef.typeValue;
+        string initFuncName = cleanupFunctionName(recordType.name.value + "__init_");
+        string lookupKey = getPackageName(recordType.moduleId.org, recordType.moduleId.name) + recordType.name.value + ".<init>";
+        BIRFunctionWrapper fnWrapper = getBIRFunctionWrapper(birFunctionMap[lookupKey]);
+        string valueClassName = fnWrapper.fullQualifiedClassName;
 
-        // Attached functions are empty for type-labeling. In such cases, call the __init() of
-        // the original type value;
-        if (attachedFuncs.length() != 0) {
-            initFuncName = <string> attachedFuncs[0]?.name?.value;
-            valueClassName = className;
-        } else {
-            // record type is the original record-type of this type-label
-            bir:BRecordType recordType = <bir:BRecordType> typeDef.typeValue;
-            valueClassName = getTypeValueClassName(recordType.moduleId, recordType.name.value);
-            initFuncName = cleanupFunctionName(recordType.name.value + "__init_");
-        }
-
-        mv.visitMethodInsn(INVOKESTATIC, valueClassName, initFuncName, io:sprintf("(L%s;L%s;)V", STRAND, MAP_VALUE), false);
+        mv.visitInsn(ICONST_1); // push the boolean flag to the stack
+        mv.visitMethodInsn(INVOKESTATIC, valueClassName, initFuncName, io:sprintf("(L%s;L%s;Z)V", STRAND, MAP_VALUE), false);
         mv.visitInsn(RETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();

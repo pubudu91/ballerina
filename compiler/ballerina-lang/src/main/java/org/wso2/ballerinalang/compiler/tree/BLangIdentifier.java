@@ -28,6 +28,13 @@ public class BLangIdentifier extends BLangNode implements IdentifierNode {
     public String value = "";
     public boolean isLiteral;
 
+    public BLangIdentifier(String value) {
+        this.value = value;
+    }
+
+    public BLangIdentifier() {
+    }
+
     @Override
     public String getValue() {
         return value;
