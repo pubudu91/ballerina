@@ -309,6 +309,8 @@ function genJMethodForBFunc(bir:Function func,
 
     // Create Local Variable Table
     k = localVarOffset;
+    // Add strand variable to LVT
+    mv.visitLocalVariable("__strand", io:sprintf("L%s;", STRAND), methodStartLabel, methodEndLabel, 0);
     while (k < localVars.length()) {
         bir:VariableDcl localVar = getVariableDcl(localVars[k]);
         jvm:Label startLabel = methodStartLabel;
@@ -328,7 +330,11 @@ function genJMethodForBFunc(bir:Function func,
                 }
             }
             string metaVarName = localVar.meta.name;
-            if (metaVarName != "") {
+            if (metaVarName != "" &&
+                      // filter out compiler added vars
+                      !((metaVarName.startsWith("$") && metaVarName.endsWith("$"))
+                        || (metaVarName.startsWith("$$") && metaVarName.endsWith("$$"))
+                        || metaVarName.startsWith("_$$_"))) {
                 mv.visitLocalVariable(metaVarName, getJVMTypeSign(localVar.typeValue),
                                 startLabel, endLabel, indexMap.getIndex(localVar));
             }
@@ -668,7 +674,7 @@ function generateBasicBlocks(jvm:MethodVisitor mv, bir:BasicBlock?[] basicBlocks
             } else if (inst is bir:NewTable) {
                 instGen.generateTableNewIns(inst);
             } else if (inst is bir:NewStream) {
-                instGen.generateStreamNewIns(inst);
+                 instGen.generateStreamNewIns(inst);
             } else if (inst is bir:NewError) {
                 instGen.generateNewErrorIns(inst);
             } else if (inst is bir:NewInstance) {
@@ -2057,7 +2063,7 @@ function cleanupBalExt(string name) returns string {
 
 function cleanupPathSeperators(string name) returns string {
    //TODO: should use file_path:getPathSeparator();
-   return internal:replace(internal:replace(name, WINDOWS_PATH_SEPERATOR, "-"), UNIX_PATH_SEPERATOR, "-");
+   return internal:replace(name, WINDOWS_PATH_SEPERATOR, JAVA_PACKAGE_SEPERATOR);
 }
 
 function generateField(jvm:ClassWriter cw, bir:BType bType, string fieldName, boolean isPackage) {
@@ -2328,7 +2334,7 @@ function findBIRFunction(bir:Package|bir:TypeDef|bir:Function src, string name) 
     return ();
 }
 
-function generateModuleInitializer(jvm:ClassWriter cw, bir:Package module, string currentPackageName) {
+function generateModuleInitializer(jvm:ClassWriter cw, bir:Package module) {
     string orgName = module.org.value;
     string moduleName = module.name.value;
     string versionValue = module.versionValue.value;
@@ -2341,10 +2347,13 @@ function generateModuleInitializer(jvm:ClassWriter cw, bir:Package module, strin
     mv.visitInsn(DUP);
     mv.visitMethodInsn(INVOKESPECIAL, typeOwnerClass, "<init>", "()V", false);
     mv.visitVarInsn(ASTORE, 1);
-    mv.visitLdcInsn(currentPackageName == "" ? "." : cleanupPackageName(currentPackageName));
+    mv.visitLdcInsn(orgName);
+    mv.visitLdcInsn(moduleName);
+    mv.visitLdcInsn(versionValue);
     mv.visitVarInsn(ALOAD, 1);
     mv.visitMethodInsn(INVOKESTATIC, io:sprintf("%s", VALUE_CREATOR), "addValueCreator",
-                       io:sprintf("(L%s;L%s;)V", STRING_VALUE, VALUE_CREATOR), false);
+                       io:sprintf("(L%s;L%s;L%s;L%s;)V", STRING_VALUE, STRING_VALUE, STRING_VALUE, VALUE_CREATOR),
+                       false);
 
     mv.visitInsn(RETURN);
     mv.visitMaxs(0,0);
