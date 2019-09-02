@@ -628,6 +628,7 @@ public class Desugar extends BLangNodeVisitor {
             env.enclPkg.topLevelNodes.add(recordTypeNode.initFunction);
         }
 
+        BVarSymbol receiverSym = recordTypeNode.initFunction.requiredParams.get(0).symbol;
         Map<Name, BVarSymbol> params = recordTypeNode.initFunction.requiredParams.stream()
                 .map(param -> param.symbol).collect(Collectors.toMap(paramSym -> paramSym.name, Function.identity()));
 
@@ -649,7 +650,7 @@ public class Desugar extends BLangNodeVisitor {
 
                     recordTypeNode.initFunction.initFunctionStmts
                             .put(field.symbol, createStructFieldUpdate(recordTypeNode.initFunction, field,
-                                                                       recordTypeNode.initFunction.receiver.symbol));
+                                                                       receiverSym));
                 });
 
         //Adding init statements to the init function.
@@ -6327,32 +6328,30 @@ public class Desugar extends BLangNodeVisitor {
 
     private BLangFunction createRecordInitFunction(BLangRecordTypeNode recordTypeNode, SymbolEnv env, Name suffix) {
         BLangFunction initFunction = ASTBuilderUtil
-                .createInitFunctionWithNilReturn(recordTypeNode.pos, Names.EMPTY.value, suffix);
-
-        // Create the receiver
-        initFunction.receiver = ASTBuilderUtil.createReceiver(recordTypeNode.pos, recordTypeNode.type);
-        BVarSymbol receiverSymbol = new BVarSymbol(Flags.asMask(EnumSet.noneOf(Flag.class)),
-                                                   names.fromIdNode(initFunction.receiver.name),
-                                                   env.enclPkg.symbol.pkgID, recordTypeNode.type, null);
-        initFunction.receiver.symbol = receiverSymbol;
-        initFunction.attachedFunction = true;
-        initFunction.flagSet.add(Flag.ATTACHED);
+                .createInitFunctionWithNilReturn(recordTypeNode.pos, recordTypeNode.symbol.name.value, suffix);
 
         // Create function type
         BInvokableType initFnType = new BInvokableType(new ArrayList<>(), symTable.nilType, null);
         initFunction.type = initFnType;
 
         // Create function symbol
-        Name funcSymbolName = names.fromString(Symbols.getAttachedFuncSymbolName(
-                recordTypeNode.type.tsymbol.name.value, Names.USER_DEFINED_INIT_SUFFIX.value));
+        Name funcSymbolName = names.fromString(initFunction.name.value);
         initFunction.symbol = Symbols
                 .createFunctionSymbol(Flags.asMask(initFunction.flagSet), funcSymbolName, env.enclPkg.symbol.pkgID,
-                                      initFunction.type, recordTypeNode.symbol.scope.owner,
-                                      initFunction.body != null);
+                                      initFunction.type, recordTypeNode.symbol.scope.owner, true);
         initFunction.symbol.scope = new Scope(initFunction.symbol);
-        initFunction.symbol.scope.define(receiverSymbol.name, receiverSymbol);
-        initFunction.symbol.receiverSymbol = receiverSymbol;
-        receiverSymbol.owner = initFunction.symbol;
+
+        // Create the receiver
+        BVarSymbol receiverParamSym = new BVarSymbol(0, names.fromString("$recSelf$"), env.scope.owner.pkgID,
+                                                     recordTypeNode.type, initFunction.symbol);
+        BLangSimpleVariable receiverParam = ASTBuilderUtil.createVariable(recordTypeNode.pos,
+                                                                          receiverParamSym.name.value,
+                                                                          receiverParamSym.type, null,
+                                                                          receiverParamSym);
+        initFunction.symbol.scope.define(receiverParamSym.name, receiverParamSym);
+        initFunction.symbol.params.add(receiverParamSym);
+        initFnType.paramTypes.add(receiverParam.type);
+        initFunction.requiredParams.add(receiverParam);
 
         // Create the params
         Set<BSymbol> symbolsReferred = new HashSet<>();
@@ -6366,7 +6365,7 @@ public class Desugar extends BLangNodeVisitor {
                     continue;
                 }
 
-                BVarSymbol paramSym = new BVarSymbol(0, localVarSym.name, this.env.scope.owner.pkgID, localVarSym.type,
+                BVarSymbol paramSym = new BVarSymbol(0, localVarSym.name, env.scope.owner.pkgID, localVarSym.type,
                                                      initFunction.symbol);
                 BLangSimpleVariable param = ASTBuilderUtil.createVariable(recordTypeNode.pos, localVarSym.name.value,
                                                                           localVarSym.type, null, paramSym);
