@@ -16,7 +16,7 @@
 
 import ballerina/io;
 import ballerina/mime;
-import ballerina/internal;
+import ballerina/stringutils;
 
 # Represents an HTTP request.
 #
@@ -313,7 +313,7 @@ public type Request object {
             } else {
                 contentTypeHeaderValue = mediaType.primaryType + "/" + mediaType.subType;
             }
-            if (!(internal:equalsIgnoreCase(mime:APPLICATION_FORM_URLENCODED, contentTypeHeaderValue))) {
+            if (!(stringutils:equalsIgnoreCase(mime:APPLICATION_FORM_URLENCODED, contentTypeHeaderValue))) {
                 string errorMessage = "Invalid content type : expected 'application/x-www-form-urlencoded'";
                 mime:InvalidContentTypeError typeError = error(mime:INVALID_CONTENT_TYPE, message = errorMessage);
                 return getGenericClientError(message, typeError);
@@ -324,7 +324,7 @@ public type Request object {
                 return getGenericClientError(message, formData);
             } else {
                 if (formData != "") {
-                    string[] entries = internal:split(formData, "&");
+                    string[] entries = stringutils:split(formData, "&");
                     int entryIndex = 0;
                     while (entryIndex < entries.length()) {
                         int? index = entries[entryIndex].indexOf("=");
@@ -473,10 +473,10 @@ public type Request object {
 
         RequestCacheControl reqCC = new;
         string cacheControl = self.getHeader(CACHE_CONTROL);
-        string[] directives = internal:split(cacheControl, ",");
+        string[] directives = stringutils:split(cacheControl, ",");
 
-        foreach var directive in directives {
-            directive = directive.trim();
+        foreach var dir in directives {
+            var directive = dir.trim();
             if (directive == NO_CACHE) {
                 reqCC.noCache = true;
             } else if (directive == NO_STORE) {

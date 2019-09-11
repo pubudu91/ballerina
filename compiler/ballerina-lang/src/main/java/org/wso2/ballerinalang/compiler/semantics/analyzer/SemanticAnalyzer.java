@@ -34,6 +34,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAnnotationSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAttachedFunction;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BErrorTypeSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BObjectTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BOperatorSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BRecordTypeSymbol;
@@ -177,6 +178,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
     private StreamsQuerySemanticAnalyzer streamsQuerySemanticAnalyzer;
     private BLangDiagnosticLog dlog;
     private TypeNarrower typeNarrower;
+    private ConstantAnalyzer constantAnalyzer;
     private ConstantValueResolver constantValueResolver;
 
     private SymbolEnv env;
@@ -209,6 +211,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         this.streamsQuerySemanticAnalyzer = StreamsQuerySemanticAnalyzer.getInstance(context);
         this.dlog = BLangDiagnosticLog.getInstance(context);
         this.typeNarrower = TypeNarrower.getInstance(context);
+        this.constantAnalyzer = ConstantAnalyzer.getInstance(context);
         this.constantValueResolver = ConstantValueResolver.getInstance(context);
     }
 
@@ -268,16 +271,19 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         //set function param flag to final
         funcNode.symbol.params.forEach(param -> param.flags |= Flags.FUNCTION_FINAL);
 
-        funcNode.annAttachments.forEach(annotationAttachment -> {
-            if (Symbols.isFlagOn(funcNode.symbol.flags, Flags.RESOURCE)) {
-                annotationAttachment.attachPoints.add(AttachPoint.Point.RESOURCE);
-            } else if (funcNode.attachedFunction) {
-                annotationAttachment.attachPoints.add(AttachPoint.Point.OBJECT_METHOD);
-            }
-            annotationAttachment.attachPoints.add(AttachPoint.Point.FUNCTION);
-            this.analyzeDef(annotationAttachment, funcEnv);
-        });
-        validateAnnotationAttachmentCount(funcNode.annAttachments);
+        if (!funcNode.flagSet.contains(Flag.WORKER)) {
+            // annotation validation for workers is done for the invocation.
+            funcNode.annAttachments.forEach(annotationAttachment -> {
+                if (Symbols.isFlagOn(funcNode.symbol.flags, Flags.RESOURCE)) {
+                    annotationAttachment.attachPoints.add(AttachPoint.Point.RESOURCE);
+                } else if (funcNode.attachedFunction) {
+                    annotationAttachment.attachPoints.add(AttachPoint.Point.OBJECT_METHOD);
+                }
+                annotationAttachment.attachPoints.add(AttachPoint.Point.FUNCTION);
+                this.analyzeDef(annotationAttachment, funcEnv);
+            });
+            validateAnnotationAttachmentCount(funcNode.annAttachments);
+        }
 
         if (funcNode.returnTypeNode != null) {
             funcNode.returnTypeAnnAttachments.forEach(annotationAttachment -> {
@@ -316,6 +322,10 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
 
         if (funcNode.body != null) {
             analyzeStmt(funcNode.body, funcEnv);
+        }
+
+        if (funcNode.anonForkName != null) {
+            funcNode.symbol.enclForkName = funcNode.anonForkName;
         }
 
         this.processWorkers(funcNode, funcEnv);
@@ -377,8 +387,14 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         boolean isAbstract = objectTypeNode.flagSet.contains(Flag.ABSTRACT);
         objectTypeNode.fields.forEach(field -> {
             analyzeDef(field, objectEnv);
-            if (isAbstract && field.flagSet.contains(Flag.PRIVATE)) {
-                this.dlog.error(field.pos, DiagnosticCode.PRIVATE_FIELD_ABSTRACT_OBJECT, field.symbol.name);
+            if (isAbstract) {
+                if (field.flagSet.contains(Flag.PRIVATE)) {
+                    this.dlog.error(field.pos, DiagnosticCode.PRIVATE_FIELD_ABSTRACT_OBJECT, field.symbol.name);
+                }
+
+                if (field.expr != null) {
+                    this.dlog.error(field.expr.pos, DiagnosticCode.FIELD_WITH_DEFAULT_VALUE_ABSTRACT_OBJECT);
+                }
             }
         });
 
@@ -528,6 +544,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         if (varNode.isDeclaredWithVar) {
             validateWorkerAnnAttachments(varNode.expr);
             handleDeclaredWithVar(varNode);
+            transferForkFlag(varNode);
             return;
         }
 
@@ -595,6 +612,20 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         if (Symbols.isFlagOn(varNode.symbol.flags, Flags.LISTENER) &&
                 !types.checkListenerCompatibility(varNode.symbol.type)) {
             dlog.error(varNode.pos, DiagnosticCode.INVALID_LISTENER_VARIABLE, varNode.name);
+        }
+
+        transferForkFlag(varNode);
+    }
+
+    private void transferForkFlag(BLangSimpleVariable varNode) {
+        // Transfer FORK flag to workers future value.
+        if (varNode.expr != null && varNode.expr.getKind() == NodeKind.INVOCATION
+                && varNode.flagSet.contains(Flag.WORKER)) {
+
+            BLangInvocation expr = (BLangInvocation) varNode.expr;
+            if (expr.name.value.startsWith("0") && (expr.symbol.flags & Flags.FORKED) == Flags.FORKED) {
+                varNode.symbol.flags |= Flags.FORKED;
+            }
         }
     }
 
@@ -833,7 +864,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         }
     }
 
-    private void handleDeclaredWithVar(BLangVariable variable, BType rhsType, SymbolEnv blockEnv) {
+    private void handleDeclaredVarInForeach(BLangVariable variable, BType rhsType, SymbolEnv blockEnv) {
         switch (variable.getKind()) {
             case VARIABLE:
                 BLangSimpleVariable simpleVariable = (BLangSimpleVariable) variable;
@@ -853,25 +884,36 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
                         symbolEnter.defineNode(simpleVariable, blockEnv);
                     }
                 }
+                recursivelySetFinalFlag(simpleVariable);
                 break;
             case TUPLE_VARIABLE:
                 BLangTupleVariable tupleVariable = (BLangTupleVariable) variable;
-                if (TypeTags.TUPLE != rhsType.tag) {
+                if (TypeTags.TUPLE != rhsType.tag && TypeTags.UNION != rhsType.tag) {
                     dlog.error(variable.pos, DiagnosticCode.INVALID_TYPE_DEFINITION_FOR_TUPLE_VAR, rhsType);
                     recursivelyDefineVariables(tupleVariable, blockEnv);
                     return;
                 }
 
                 tupleVariable.type = rhsType;
-                if (!(checkTypeAndVarCountConsistency(tupleVariable, (BTupleType) tupleVariable.type, blockEnv))) {
+
+                if (rhsType.tag == TypeTags.TUPLE && !(checkTypeAndVarCountConsistency(tupleVariable,
+                        (BTupleType) tupleVariable.type, blockEnv))) {
                     return;
                 }
+
+                if (rhsType.tag == TypeTags.UNION && !(checkTypeAndVarCountConsistency(tupleVariable, null,
+                        blockEnv))) {
+                    return;
+                }
+
                 symbolEnter.defineNode(tupleVariable, blockEnv);
+                recursivelySetFinalFlag(tupleVariable);
                 break;
             case RECORD_VARIABLE:
                 BLangRecordVariable recordVariable = (BLangRecordVariable) variable;
                 recordVariable.type = rhsType;
                 validateRecordVariable(recordVariable, blockEnv);
+                recursivelySetFinalFlag(recordVariable);
                 break;
             case ERROR_VARIABLE:
                 BLangErrorVariable errorVariable = (BLangErrorVariable) variable;
@@ -882,6 +924,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
                 }
                 errorVariable.type = rhsType;
                 validateErrorVariable(errorVariable);
+                recursivelySetFinalFlag(errorVariable);
                 break;
         }
     }
@@ -907,6 +950,38 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         }
     }
 
+    private void recursivelySetFinalFlag(BLangVariable variable) {
+        if (variable == null) {
+            return;
+        }
+
+        switch (variable.getKind()) {
+            case VARIABLE:
+                if (variable.symbol == null) {
+                    return;
+                }
+                variable.symbol.flags |= Flags.FINAL;
+                break;
+            case TUPLE_VARIABLE:
+                BLangTupleVariable tupleVariable = (BLangTupleVariable) variable;
+                tupleVariable.memberVariables.forEach(this::recursivelySetFinalFlag);
+                recursivelySetFinalFlag(tupleVariable.restVariable);
+                break;
+            case RECORD_VARIABLE:
+                BLangRecordVariable recordVariable = (BLangRecordVariable) variable;
+                recordVariable.variableList.forEach(value -> recursivelySetFinalFlag(value.valueBindingPattern));
+                recursivelySetFinalFlag((BLangVariable) recordVariable.restParam);
+                break;
+            case ERROR_VARIABLE:
+                BLangErrorVariable errorVariable = (BLangErrorVariable) variable;
+                recursivelySetFinalFlag(errorVariable.reason);
+                recursivelySetFinalFlag(errorVariable.restDetail);
+                errorVariable.detail.forEach(bLangErrorDetailEntry ->
+                        recursivelySetFinalFlag(bLangErrorDetailEntry.valueBindingPattern));
+                break;
+        }
+    }
+
     private boolean checkTypeAndVarCountConsistency(BLangTupleVariable varNode) {
         return checkTypeAndVarCountConsistency(varNode, null, env);
     }
@@ -917,7 +992,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         if (tupleTypeNode == null) {
         /*
           This switch block will resolve the tuple type of the tuple variable.
-          For example consider the following - (int, string)|(boolean, float) (a, b) = foo();
+          For example consider the following - [int, string]|[boolean, float] [a, b] = foo();
           Since the varNode type is a union, the types of 'a' and 'b' will be resolved as follows:
           Type of 'a' will be (int | boolean) while the type of 'b' will be (string | float).
           Consider anydata (a, b) = foo();
@@ -952,7 +1027,12 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
                                     memberTupleTypes.add(varNode.type);
                                 }
                             }
-                            memberTupleTypes.add(BUnionType.create(null, memberTypes));
+
+                            if (memberTypes.size() > 1) {
+                                memberTupleTypes.add(BUnionType.create(null, memberTypes));
+                            } else {
+                                memberTupleTypes.addAll(memberTypes);
+                            }
                         }
                         tupleTypeNode = new BTupleType(memberTupleTypes);
                         break;
@@ -2227,7 +2307,11 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
 
     @Override
     public void visit(BLangForkJoin forkJoin) {
-       /* ignore */
+        for (BLangSimpleVariableDef worker : forkJoin.workers) {
+            BLangFunction function = ((BLangLambdaFunction) worker.var.expr).function;
+            function.symbol.enclForkName = function.anonForkName;
+            ((BInvokableSymbol) worker.var.symbol).enclForkName = function.anonForkName;
+        }
     }
 
     @Override
@@ -2330,55 +2414,24 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
             dlog.error(constant.typeNode.pos, DiagnosticCode.CANNOT_DEFINE_CONSTANT_WITH_TYPE, constant.typeNode);
         }
 
-        BLangExpression expression = constant.expr;
-        if (!symbolEnter.isValidConstantExpression(expression)) {
-            dlog.error(expression.pos, DiagnosticCode.ONLY_SIMPLE_LITERALS_CAN_BE_ASSIGNED_TO_CONST);
-            return;
-        }
 
         constant.annAttachments.forEach(annotationAttachment -> {
             annotationAttachment.attachPoints.add(AttachPoint.Point.CONST);
             annotationAttachment.accept(this);
         });
 
-        if (expression.getKind() == NodeKind.RECORD_LITERAL_EXPR && constant.typeNode == null) {
+        BLangExpression expression = constant.expr;
+        if (!(expression.getKind() == LITERAL || expression.getKind() == NUMERIC_LITERAL)
+                && constant.typeNode == null) {
             constant.type = symTable.semanticError;
-            dlog.error(expression.pos, DiagnosticCode.TYPE_REQUIRED_FOR_CONST_WITH_RECORD_LITERALS);
-            return;
+            dlog.error(expression.pos, DiagnosticCode.TYPE_REQUIRED_FOR_CONST_WITH_EXPRESSIONS);
+            return; // This has to return, because constant.symbol.type is required for further validations.
         }
 
         typeChecker.checkExpr(expression, env, constant.symbol.type);
 
         // Check nested expressions.
-        checkConstantExpression(expression);
-    }
-
-    // Private methods
-
-    private void checkConstantExpression(BLangExpression expression) {
-        // Recursively check whether all the nested expressions in the provided expression are constants or can be
-        // evaluated to constants.
-        switch (expression.getKind()) {
-            case LITERAL:
-            case NUMERIC_LITERAL:
-                break;
-            case SIMPLE_VARIABLE_REF:
-                BSymbol symbol = ((BLangSimpleVarRef) expression).symbol;
-                // Symbol can be null in some invalid scenarios. Eg - const string m = { name: "Ballerina" };
-                if (symbol != null && (symbol.tag & SymTag.CONSTANT) != SymTag.CONSTANT) {
-                    dlog.error(expression.pos, DiagnosticCode.EXPRESSION_IS_NOT_A_CONSTANT_EXPRESSION);
-                }
-                break;
-            case RECORD_LITERAL_EXPR:
-                ((BLangRecordLiteral) expression).keyValuePairs.forEach(pair -> {
-                    checkConstantExpression(pair.key.expr);
-                    checkConstantExpression(pair.valueExpr);
-                });
-                break;
-            default:
-                dlog.error(expression.pos, DiagnosticCode.EXPRESSION_IS_NOT_A_CONSTANT_EXPRESSION);
-                break;
-        }
+        constantAnalyzer.visit(constant);
     }
 
     // TODO: 7/10/19 Remove this once const support is added for lists. A separate method is introduced temporarily
@@ -2420,7 +2473,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         // Check whether the foreach node's variables are declared with var.
         if (foreachStmt.isDeclaredWithVar) {
             // If the foreach node's variables are declared with var, type is `varType`.
-            handleDeclaredWithVar(variableNode, foreachStmt.varType, blockEnv);
+            handleDeclaredVarInForeach(variableNode, foreachStmt.varType, blockEnv);
             return;
         }
         // If the type node is available, we get the type from it.
@@ -2428,12 +2481,12 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
         // Then we need to check whether the RHS type is assignable to LHS type.
         if (types.isAssignable(foreachStmt.varType, typeNodeType)) {
             // If assignable, we set types to the variables.
-            handleDeclaredWithVar(variableNode, foreachStmt.varType, blockEnv);
+            handleDeclaredVarInForeach(variableNode, foreachStmt.varType, blockEnv);
             return;
         }
         // Log an error and define a symbol with the node's type to avoid undeclared symbol errors.
         dlog.error(variableNode.typeNode.pos, DiagnosticCode.INCOMPATIBLE_TYPES, foreachStmt.varType, typeNodeType);
-        handleDeclaredWithVar(variableNode, typeNodeType, blockEnv);
+        handleDeclaredVarInForeach(variableNode, typeNodeType, blockEnv);
     }
 
     private void checkRetryStmtValidity(BLangExpression retryCountExpr) {
@@ -2586,7 +2639,7 @@ public class SemanticAnalyzer extends BLangNodeVisitor {
 
         if (Symbols.isFlagOn(annotationSymbol.flags, Flags.CONSTANT)) {
             if (annotationSymbol.points.stream().anyMatch(attachPoint -> !attachPoint.source)) {
-                checkConstantExpression(annAttachmentNode.expr);
+                constantAnalyzer.analyzeExpr(annAttachmentNode.expr);
                 return;
             }
             checkAnnotConstantExpression(annAttachmentNode.expr);
