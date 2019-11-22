@@ -32,7 +32,7 @@ public type InboundLdapAuthProvider object {
 
     # Create an LDAP auth store with the given configurations.
     #
-    # + ldapConnectionConfig -  LDAP connection configurations
+    # + ldapConnectionConfig - LDAP connection configurations
     # + instanceId - Endpoint instance id
     public function __init(LdapConnectionConfig ldapConnectionConfig, string instanceId) {
         self.instanceId = instanceId;
@@ -62,7 +62,7 @@ public type InboundLdapAuthProvider object {
         if (groups is string[]) {
             scopes = groups;
         } else {
-            return auth:prepareError("Failed to get groups from LDAP with the username: " + username, groups);
+            return prepareAuthError("Failed to get groups from LDAP with the username: " + username, groups);
         }
         if (authenticated is boolean) {
             if (authenticated) {
@@ -72,7 +72,7 @@ public type InboundLdapAuthProvider object {
             }
             return authenticated;
         } else {
-            return auth:prepareError("Failed to authenticate LDAP with username: " + username + " and password: " + password, authenticated);
+            return prepareAuthError("Failed to authenticate LDAP with username: " + username + " and password: " + password, authenticated);
         }
     }
 };
@@ -140,15 +140,15 @@ public type LdapConnection record {|
 # Reads the scope(s) for the user with the given username.
 #
 # + ldapConnection - `LdapConnection` instance
-# + username - Username
+# + username - Username of the user to check the groups
 # + return - Array of groups for the user denoted by the username or `Error` if error occurred
 public function getGroups(LdapConnection ldapConnection, string username) returns string[]|Error = external;
 
 # Authenticate with username and password.
 #
 # + ldapConnection - `LdapConnection` instance
-# + username - Username
-# + password - Password
+# + username - Username of the user to be authenticated
+# + password - Password of the user to be authenticated
 # + return - true if authentication is a success, else false or `Error` if error occurred
 public function doAuthenticate(LdapConnection ldapConnection, string username, string password)
                                returns boolean|Error = external;

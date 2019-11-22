@@ -22,7 +22,7 @@ import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.types.BArrayType;
 import org.ballerinalang.jvm.types.BType;
 import org.ballerinalang.jvm.util.exceptions.BallerinaException;
-import org.ballerinalang.jvm.values.ArrayValue;
+import org.ballerinalang.jvm.values.ArrayValueImpl;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.natives.annotations.BallerinaFunction;
 import org.ballerinalang.stdlib.file.utils.FileConstants;
@@ -86,8 +86,8 @@ public class ReadDir {
                 } catch (IOException e) {
                     throw new BallerinaException("Error while accessing file info", e);
                 }
-            }).toArray(ObjectValue[]::new);
-            return new ArrayValue(results, new BArrayType(fileInfoType));
+            }).skip(1).toArray(ObjectValue[]::new);
+            return new ArrayValueImpl(results, new BArrayType(fileInfoType));
         } catch (IOException | BallerinaException ex) {
             return FileUtils.getBallerinaError(FileConstants.FILE_SYSTEM_ERROR, ex);
         } catch (SecurityException ex) {

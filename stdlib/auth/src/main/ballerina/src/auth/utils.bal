@@ -36,10 +36,10 @@ public const string CONFIG_PREFIX_SHA384 = "@sha384:";
 # Prefix used to denote that the config value is a SHA-512 hash.
 public const string CONFIG_PREFIX_SHA512 = "@sha512:";
 
-# Basic Authentication scheme.
+# Prefix used to denote Basic Authentication scheme.
 public const string AUTH_SCHEME_BASIC = "Basic ";
 
-# Bearer Authentication scheme.
+# Prefix used to denote Bearer Authentication scheme.
 public const string AUTH_SCHEME_BEARER = "Bearer ";
 
 # The table name of the config user section of the TOML file.
@@ -50,7 +50,20 @@ const string CONFIG_USER_SECTION = "b7a.users";
 # + credential - The credential values.
 # + return - A `string` tuple with the extracted username and password or `Error` occurred while extracting credentials
 public function extractUsernameAndPassword(string credential) returns [string, string]|Error {
-    string decodedHeaderValue = check strings:fromBytes(check arrays:fromBase64(credential));
+    string decodedHeaderValue = "";
+
+    byte[]|error result = arrays:fromBase64(credential);
+    if (result is error) {
+        return prepareError(result.reason(), result);
+    } else {
+        string|error fromBytesResults = strings:fromBytes(result);
+        if (fromBytesResults is string) {
+            decodedHeaderValue = fromBytesResults;
+        } else {
+            return prepareError(fromBytesResults.reason(), fromBytesResults);
+        }
+    }
+
     string[] decodedCredentials = stringutils:split(decodedHeaderValue, ":");
     if (decodedCredentials.length() != 2) {
         return prepareError("Incorrect credential format. Format should be username:password");
@@ -64,7 +77,7 @@ public function extractUsernameAndPassword(string credential) returns [string, s
 # + message - Error message
 # + err - `error` instance
 # + return - Prepared `Error` instance
-public function prepareError(string message, error? err = ()) returns Error {
+function prepareError(string message, error? err = ()) returns Error {
     log:printError(message, err);
     Error authError;
     if (err is error) {
@@ -75,7 +88,7 @@ public function prepareError(string message, error? err = ()) returns Error {
     return authError;
 }
 
-# Set the authentication context values to invocation context.
+# Set the authentication related values (scheme, auth token) to the authentication context of the invocation context.
 #
 # + scheme - Auth scheme (JWT, LDAP, OAuth2, Basic etc.)
 # + authToken - Auth token (credential)
@@ -87,7 +100,7 @@ public function setAuthenticationContext(string scheme, string authToken) {
     };
 }
 
-# Set the principal values to invocation context.
+# Set the authentication related values (user id, username, scopes, claims) to the principal of the invocation context.
 #
 # + userId - User Id of the authenticated user.
 # + username - Username of the authenticated user.
@@ -96,10 +109,10 @@ public function setAuthenticationContext(string scheme, string authToken) {
 public function setPrincipal(public string? userId = (), public string? username = (), public string[]? scopes = (),
                              public map<any>? claims = ()) {
     runtime:InvocationContext invocationContext = runtime:getInvocationContext();
-    if (!(userId is ())) {
+    if (!(userId is ()) && userId != "") {
         invocationContext.principal.userId = userId;
     }
-    if (!(username is ())) {
+    if (!(username is ()) && username != "") {
         invocationContext.principal.username = username;
     }
     if (!(scopes is ())) {

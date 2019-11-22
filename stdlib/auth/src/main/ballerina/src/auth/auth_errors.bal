@@ -14,10 +14,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-type Detail record {
+# Record type to hold the details of an error.
+#
+# + message - Specific error message of the error.
+# + cause - Any other error, which causes this error.
+public type Detail record {
     string message;
     error cause?;
 };
 
+# Represents the Auth error reason.
 public const AUTH_ERROR = "{ballerina/auth}Error";
+
+# Represents the Auth error type with details. This will be returned if an error occurred while inbound auth providers
+# try to authenticate the received credentials and outbound auth providers try to generate the token.
 public type Error error<AUTH_ERROR, Detail>;

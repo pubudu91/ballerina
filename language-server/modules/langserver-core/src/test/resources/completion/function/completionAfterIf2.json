@@ -146,7 +146,7 @@
       "kind": "Snippet",
       "detail": "Statement",
       "sortText": "240",
-      "insertText": "transaction with retries = ${1:0} {\n\t${2}\n} onretry {\n\t${3}\n}",
+      "insertText": "transaction with retries = ${1:0} {\n\t${2}\n} onretry {\n\t${3}\n} committed {\n\t${4}\n} aborted {\n\t${5}\n}",
       "insertTextFormat": "Snippet"
     },
     {
@@ -618,6 +618,29 @@
             }
           },
           "newText": "import ballerina/grpc;\n"
+        }
+      ]
+    },
+    {
+      "label": "ballerina/bir",
+      "kind": "Module",
+      "detail": "Package",
+      "sortText": "140",
+      "insertText": "bir",
+      "insertTextFormat": "Snippet",
+      "additionalTextEdits": [
+        {
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 0
+            },
+            "end": {
+              "line": 0,
+              "character": 0
+            }
+          },
+          "newText": "import ballerina/bir;\n"
         }
       ]
     },

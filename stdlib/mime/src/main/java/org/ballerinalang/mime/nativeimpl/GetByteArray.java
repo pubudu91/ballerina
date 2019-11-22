@@ -21,6 +21,8 @@ package org.ballerinalang.mime.nativeimpl;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.values.ArrayValue;
+import org.ballerinalang.jvm.values.ArrayValueImpl;
+import org.ballerinalang.jvm.values.ErrorValue;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.jvm.values.connector.NonBlockingCallback;
 import org.ballerinalang.jvm.values.utils.StringUtils;
@@ -68,15 +70,15 @@ public class GetByteArray extends AbstractGetPayloadHandler {
                     if (isNotNullAndEmpty(contentTypeValue)) {
                         String charsetValue = MimeUtil.getContentTypeParamValue(contentTypeValue, CHARSET);
                         if (isNotNullAndEmpty(charsetValue)) {
-                            result = new ArrayValue(StringUtils.getJsonString(messageDataSource)
+                            result = new ArrayValueImpl(StringUtils.getJsonString(messageDataSource)
                                                             .getBytes(charsetValue));
                         } else {
-                            result = new ArrayValue(StringUtils.getJsonString(messageDataSource)
+                            result = new ArrayValueImpl(StringUtils.getJsonString(messageDataSource)
                                                             .getBytes(Charset.defaultCharset()));
                         }
                     }
                 }
-                return result != null ? result : new ArrayValue(new byte[0]);
+                return result != null ? result : new ArrayValueImpl(new byte[0]);
             }
 
             Object transportMessage = entityObj.getNativeData(TRANSPORT_MESSAGE);
@@ -88,8 +90,12 @@ public class GetByteArray extends AbstractGetPayloadHandler {
                 constructNonBlockingDataSource(callback, entityObj, SourceType.BLOB);
             }
         } catch (Exception ex) {
+            if (ex instanceof ErrorValue) {
+                return createParsingEntityBodyFailedErrorAndNotify(callback,
+                        "Error occurred while extracting blob data from entity", (ErrorValue) ex);
+            }
             createParsingEntityBodyFailedErrorAndNotify(callback,
-                                 "Error occurred while extracting blob data from entity : " + getErrorMsg(ex));
+                    "Error occurred while extracting blob data from entity : " + getErrorMsg(ex), null);
         }
         return result;
     }

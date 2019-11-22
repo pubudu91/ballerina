@@ -27,13 +27,12 @@ You can use one of the following options to try out Ballerina.
 * [Getting Started](https://ballerina.io/learn/getting-started/)
 * [Quick Tour](https://ballerina.io/learn/quick-tour/)
 * [Ballerina by Example](https://ballerina.io/learn/by-example/) 
-* [Ballerina by Guide](https://ballerina.io/learn/by-guide/)
 
 ## Download and install
 
 ### Download the binary
 
-You can download the Ballerina distribution at http://ballerina.io.
+You can download the Ballerina distribution at https://ballerina.io.
 
 ### Install from source
 
@@ -42,7 +41,6 @@ Alternatively, you can install Ballerina from the source using the following ins
 #### Prerequisites
 
 * [Oracle JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) or [OpenJDK 8](http://openjdk.java.net/install/)
-* [Maven 3.5.0 or later](https://maven.apache.org/download.cgi)
 * [Node (v8.9.x) + npm (v5.6.0 or later)](https://nodejs.org/en/download/)
 * [Docker](https://www.docker.com/get-docker)
 
@@ -78,6 +76,6 @@ Ballerina code is distributed under [Apache license 2.0](https://github.com/ball
 ## Useful links
 
 * The ballerina-dev@googlegroups.com mailing list is for discussing code changes to the Ballerina project.
-* Chat live with us on our [Slack channel](https://ballerina.io/open-source/slack/).
+* Chat live with us on our [Slack channel](https://ballerina.io/community/slack/).
 * Technical questions should be posted on Stack Overflow with the [#ballerina](https://stackoverflow.com/questions/tagged/ballerina) tag.
 * Ballerina performance test results are available [here](performance/benchmarks/summary.md).

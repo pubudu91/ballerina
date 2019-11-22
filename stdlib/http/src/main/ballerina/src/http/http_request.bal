@@ -112,7 +112,7 @@ public type Request object {
     #
     # + headerName - The header name
     # + return - The first header value for the specified header name. An exception is thrown if no header is found. Use
-    #            `hasHeader()` beforehand to check the existence of header.
+    #            `Request.hasHeader()` beforehand to check the existence of header.
     public function getHeader(string headerName) returns @tainted string {
         mime:Entity entity = self.getEntityWithoutBody();
         return entity.getHeader(headerName);
@@ -122,7 +122,7 @@ public type Request object {
     #
     # + headerName - The header name
     # + return - The header values the specified header key maps to. An exception is thrown if no header is found. Use
-    #            `hasHeader()` beforehand to check the existence of header.
+    #            `Request.hasHeader()` beforehand to check the existence of header.
     public function getHeaders(string headerName) returns @tainted string[] {
         mime:Entity entity = self.getEntityWithoutBody();
         return entity.getHeaders(headerName);
@@ -209,8 +209,12 @@ public type Request object {
         } else {
             var payload = result.getJson();
             if (payload is mime:Error) {
-                string message = "Error occurred while retrieving the json payload from the request";
-                return getGenericClientError(message, payload);
+                if (payload.detail()?.cause is mime:NoContentError) {
+                    return createErrorForNoPayload(payload);
+                } else {
+                    string message = "Error occurred while retrieving the json payload from the request";
+                    return getGenericClientError(message, payload);
+               }
             } else {
                 return payload;
             }
@@ -227,8 +231,12 @@ public type Request object {
         } else {
             var payload = result.getXml();
             if (payload is mime:Error) {
-                string message = "Error occurred while retrieving the xml payload from the request";
-                return getGenericClientError(message, payload);
+                if (payload.detail()?.cause is mime:NoContentError) {
+                    return createErrorForNoPayload(payload);
+                } else {
+                    string message = "Error occurred while retrieving the xml payload from the request";
+                    return getGenericClientError(message, payload);
+                }
             } else {
                 return payload;
             }
@@ -245,8 +253,12 @@ public type Request object {
         } else {
             var payload = result.getText();
             if (payload is mime:Error) {
-                string message = "Error occurred while retrieving the text payload from the request";
-                return getGenericClientError(message, payload);
+                if (payload.detail()?.cause is mime:NoContentError) {
+                    return createErrorForNoPayload(payload);
+                } else {
+                    string message = "Error occurred while retrieving the text payload from the request";
+                    return getGenericClientError(message, payload);
+                }
             } else {
                 return payload;
             }
@@ -254,7 +266,7 @@ public type Request object {
     }
 
     # Gets the request payload as a `ByteChannel` except in the case of multiparts. To retrieve multiparts, use
-    # `getBodyParts()`.
+    # `Request.getBodyParts()`.
     #
     # + return - A byte channel from which the message payload can be read or `http:ClientError` in case of errors
     public function getByteChannel() returns @tainted io:ReadableByteChannel|ClientError {

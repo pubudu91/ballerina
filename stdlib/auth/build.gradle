@@ -46,6 +46,8 @@ dependencies {
     implementation project(':ballerina-io')
     implementation project(':ballerina-stringutils')
 
+    interopImports project(':ballerina-task')
+
     testCompile 'org.testng:testng'
     testCompile 'org.slf4j:slf4j-jdk14'
     testCompile project(path: ':ballerina-test-common', configuration: 'tests')
@@ -60,6 +62,7 @@ dependencies {
     testCompile project(':ballerina-reflect')
     testCompile project(':ballerina-crypto')
     testCompile project(':ballerina-file')
+    testCompile project(':ballerina-auth')
 }
 
 configurations.all {

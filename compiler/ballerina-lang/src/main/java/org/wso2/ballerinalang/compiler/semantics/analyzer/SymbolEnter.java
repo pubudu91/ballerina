@@ -127,6 +127,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import javax.xml.XMLConstants;
 
 import static org.ballerinalang.model.elements.PackageID.ARRAY;
@@ -260,28 +261,28 @@ public class SymbolEnter extends BLangNodeVisitor {
             importPkgHolder.put(qualifiedName, new ImportResolveHolder(importNode));
             defineNode(importNode, pkgEnv);
         });
-
+    
         for (ImportResolveHolder importHolder : importPkgHolder.values()) {
             for (BLangImportPackage unresolvedPkg : importHolder.unresolved) {
                 BPackageSymbol pkgSymbol = importHolder.resolved.symbol; // get a copy of the package symbol, add
-                // compilation unit info to it,
-
+                                                                         // compilation unit info to it,
+    
                 BPackageSymbol importSymbol = importHolder.resolved.symbol;
                 Name resolvedPkgAlias = names.fromIdNode(importHolder.resolved.alias);
                 Name unresolvedPkgAlias = names.fromIdNode(unresolvedPkg.alias);
-
+    
                 // check if its the same import or has the same alias.
                 if (!Names.IGNORE.equals(unresolvedPkgAlias) && unresolvedPkgAlias.equals(resolvedPkgAlias)
-                        && importSymbol.compUnit.equals(names.fromIdNode(unresolvedPkg.compUnit))) {
+                    && importSymbol.compUnit.equals(names.fromIdNode(unresolvedPkg.compUnit))) {
                     if (isSameImport(unresolvedPkg, importSymbol)) {
                         dlog.error(unresolvedPkg.pos, DiagnosticCode.REDECLARED_IMPORT_MODULE,
-                                   unresolvedPkg.getQualifiedPackageName());
+                                unresolvedPkg.getQualifiedPackageName());
                     } else {
                         dlog.error(unresolvedPkg.pos, DiagnosticCode.REDECLARED_SYMBOL, unresolvedPkgAlias);
                     }
                     continue;
                 }
-
+                
                 unresolvedPkg.symbol = pkgSymbol;
                 // and define it in the current package scope
                 BPackageSymbol symbol = duplicatePackagSymbol(pkgSymbol);
@@ -356,7 +357,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                 dlog.error(annotTypeNode.pos, DiagnosticCode.ANNOTATION_INVALID_TYPE, type);
             }
 
-            if (annotationNode.flagSet.contains(Flag.CONSTANT) && !types.isAnydata(type)) {
+            if (annotationNode.flagSet.contains(Flag.CONSTANT) && !type.isAnydata()) {
                 dlog.error(annotTypeNode.pos, DiagnosticCode.ANNOTATION_INVALID_CONST_TYPE, type);
             }
         }
@@ -365,6 +366,10 @@ public class SymbolEnter extends BLangNodeVisitor {
                 annotationNode.getAttachPoints().stream().anyMatch(attachPoint -> attachPoint.source)) {
             dlog.error(annotationNode.pos, DiagnosticCode.ANNOTATION_REQUIRES_CONST);
         }
+    }
+
+    private boolean isNullOrEmpty(String s) {
+        return s == null || s.isEmpty();
     }
 
     @Override
@@ -376,7 +381,7 @@ public class SymbolEnter extends BLangNodeVisitor {
             if (importSymbol != symTable.notFoundSymbol) {
                 if (isSameImport(importPkgNode, (BPackageSymbol) importSymbol)) {
                     dlog.error(importPkgNode.pos, DiagnosticCode.REDECLARED_IMPORT_MODULE,
-                               importPkgNode.getQualifiedPackageName());
+                            importPkgNode.getQualifiedPackageName());
                 } else {
                     dlog.error(importPkgNode.pos, DiagnosticCode.REDECLARED_SYMBOL, pkgAlias);
                 }
@@ -389,29 +394,32 @@ public class SymbolEnter extends BLangNodeVisitor {
         Name orgName;
         Name version;
         PackageID enclPackageID = env.enclPkg.packageID;
-        if (importPkgNode.orgName.value == null || importPkgNode.orgName.value.isEmpty()) {
-            // means it's in 'import <pkg-name>' style
-            orgName = enclPackageID.orgName;
-            version = (Names.DEFAULT_VERSION.equals(enclPackageID.version)) ? new Name("") : enclPackageID.version;
-        } else if (importPkgNode.orgName.value.equals(enclPackageID.orgName.value)) {
-            // means it's in 'import <org-name>/<pkg-name>' style and <org-name> is used to import within same project
+        // The pattern of the import statement is 'import [org-name /] module-name [version sem-ver]'
+        // Three cases should be considered here.
+        // 1. import org-name/module-name version
+        // 2. import org-name/module-name
+        //      2a. same project
+        //      2b. different project
+        // 3. import module-name
+        if (!isNullOrEmpty(importPkgNode.orgName.value)) {
             orgName = names.fromIdNode(importPkgNode.orgName);
-            // Here we set the version to enclosing package version. Following cases will be handled properly:
-            // 1) Suppose the import is from the same project, then the enclosing package version set here will be used
-            //    to lookup package symbol cache, avoiding re-defining package symbol.
-            String pkgName = importPkgNode.getPackageName().stream()
-                    .map(id -> id.value)
-                    .collect(Collectors.joining("."));
-            if (this.sourceDirectory.getSourcePackageNames().contains(pkgName)) {
-                version = enclPackageID.version;
+            if (!isNullOrEmpty(importPkgNode.version.value)) {
+                version = names.fromIdNode(importPkgNode.version);
             } else {
-                version = new Name("");
+                String pkgName = importPkgNode.getPackageName().stream()
+                        .map(id -> id.value)
+                        .collect(Collectors.joining("."));
+                if (this.sourceDirectory.getSourcePackageNames().contains(pkgName)) {
+                    version = enclPackageID.version;
+                } else {
+                    version = Names.EMPTY;
+                }
             }
         } else {
-            // means it's in 'import <org-name>/<pkg-name>' style
-            orgName = names.fromIdNode(importPkgNode.orgName);
-            version = names.fromIdNode(importPkgNode.version);
+            orgName = enclPackageID.orgName;
+            version = (Names.DEFAULT_VERSION.equals(enclPackageID.version)) ? Names.EMPTY : enclPackageID.version;
         }
+
         List<Name> nameComps = importPkgNode.pkgNameComps.stream()
                 .map(identifier -> names.fromIdNode(identifier))
                 .collect(Collectors.toList());
@@ -425,7 +433,7 @@ public class SymbolEnter extends BLangNodeVisitor {
             if (!(enclPackageID.orgName.equals(Names.BALLERINA_ORG)
                     && enclPackageID.name.value.startsWith(Names.LANG.value))) {
                 dlog.error(importPkgNode.pos, DiagnosticCode.MODULE_NOT_FOUND,
-                           importPkgNode.getQualifiedPackageName());
+                        importPkgNode.getQualifiedPackageName());
                 return;
             }
         }
@@ -474,7 +482,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         BPackageSymbol pkgSymbol = pkgLoader.loadPackageSymbol(pkgId, enclPackageID, this.env.enclPkg.repos);
         if (pkgSymbol == null) {
             dlog.error(importPkgNode.pos, DiagnosticCode.MODULE_NOT_FOUND,
-                       importPkgNode.getQualifiedPackageName());
+                    importPkgNode.getQualifiedPackageName());
             return;
         }
 
@@ -496,7 +504,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     public void visit(BLangXMLNS xmlnsNode) {
         String nsURI = (String) ((BLangLiteral) xmlnsNode.namespaceURI).value;
 
-        if (xmlnsNode.prefix.value != null && nsURI.isEmpty()) {
+        if (!nullOrEmpty(xmlnsNode.prefix.value) && nsURI.isEmpty()) {
             dlog.error(xmlnsNode.pos, DiagnosticCode.INVALID_NAMESPACE_DECLARATION, xmlnsNode.prefix);
         }
 
@@ -506,7 +514,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         }
 
         BXMLNSSymbol xmlnsSymbol = Symbols.createXMLNSSymbol(names.fromIdNode(xmlnsNode.prefix), nsURI,
-                                                             env.enclPkg.symbol.pkgID, env.scope.owner);
+                env.enclPkg.symbol.pkgID, env.scope.owner);
         xmlnsNode.symbol = xmlnsSymbol;
 
         // First check for package-imports with the same alias.
@@ -521,6 +529,10 @@ public class SymbolEnter extends BLangNodeVisitor {
         // Define it in the enclosing scope. Here we check for the owner equality,
         // to support overriding of namespace declarations defined at package level.
         defineSymbol(xmlnsNode.prefix.pos, xmlnsSymbol);
+    }
+
+    private boolean nullOrEmpty(String value) {
+        return value == null || value.isEmpty();
     }
 
     public void visit(BLangXMLNSStatement xmlnsStmtNode) {
@@ -570,7 +582,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         switch (currentTypeNode.getKind()) {
             case ARRAY_TYPE:
                 checkErrors(unresolvedType, ((BLangArrayType) currentTypeNode).elemtype, visitedNodes,
-                            encounteredUnknownTypes);
+                        encounteredUnknownTypes);
                 break;
             case UNION_TYPE_NODE:
                 // If the current type node is a union type node, we need to check all member nodes.
@@ -588,7 +600,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                 break;
             case CONSTRAINED_TYPE:
                 checkErrors(unresolvedType, ((BLangConstrainedType) currentTypeNode).constraint, visitedNodes,
-                            encounteredUnknownTypes);
+                        encounteredUnknownTypes);
                 break;
             case USER_DEFINED_TYPE:
                 String currentTypeNodeName = ((BLangUserDefinedType) currentTypeNode).typeName.value;
@@ -603,7 +615,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                     // printing the error.
                     visitedNodes.add(currentTypeNodeName);
                     dlog.error((DiagnosticPos) unresolvedType.getPosition(), DiagnosticCode.CYCLIC_TYPE_REFERENCE,
-                               visitedNodes);
+                            visitedNodes);
                     // We need to remove the last occurrence since we use this list in a recursive call.
                     // Otherwise, unwanted types will get printed in the cyclic dependency error.
                     visitedNodes.remove(visitedNodes.lastIndexOf(currentTypeNodeName));
@@ -621,7 +633,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                     // Add the `currentTypeNodeName` to complete the cycle.
                     dependencyList.add(currentTypeNodeName);
                     dlog.error((DiagnosticPos) unresolvedType.getPosition(), DiagnosticCode.CYCLIC_TYPE_REFERENCE,
-                               dependencyList);
+                            dependencyList);
                 } else {
                     // Check whether the current type node is in the unresolved list. If it is in the list, we need to
                     // check it recursively.
@@ -632,7 +644,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                         // If a type is declared, it should either get defined successfully or added to the unresolved
                         // types list. If a type is not in either one of them, that means it is an undefined type.
                         LocationData locationData = new LocationData(currentTypeNodeName, currentTypeNode.pos.sLine,
-                                                                     currentTypeNode.pos.sCol);
+                                currentTypeNode.pos.sCol);
                         if (!encounteredUnknownTypes.contains(locationData)) {
                             dlog.error(currentTypeNode.pos, DiagnosticCode.UNKNOWN_TYPE, currentTypeNodeName);
                             encounteredUnknownTypes.add(locationData);
@@ -644,7 +656,7 @@ public class SymbolEnter extends BLangNodeVisitor {
                             visitedNodes.add(typeName);
                             // Recursively check for errors.
                             checkErrors(unresolvedType, (BLangType) typeDefinition.getTypeNode(), visitedNodes,
-                                        encounteredUnknownTypes);
+                                    encounteredUnknownTypes);
                             // We need to remove the added type node here since we have finished checking errors.
                             visitedNodes.remove(visitedNodes.lastIndexOf(typeName));
                         }
@@ -753,8 +765,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     private void defineErrorConstructorSymbol(DiagnosticPos pos, BTypeSymbol typeDefSymbol) {
         BErrorType errorType = (BErrorType) typeDefSymbol.type;
         BConstructorSymbol symbol = new BConstructorSymbol(SymTag.CONSTRUCTOR,
-                                                           typeDefSymbol.flags, typeDefSymbol.name, typeDefSymbol.pkgID,
-                                                           errorType, typeDefSymbol.owner);
+                typeDefSymbol.flags, typeDefSymbol.name, typeDefSymbol.pkgID, errorType, typeDefSymbol.owner);
         symbol.kind = SymbolKind.ERROR_CONSTRUCTOR;
         symbol.scope = new Scope(symbol);
         symbol.retType = errorType;
@@ -768,8 +779,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     @Override
     public void visit(BLangWorker workerNode) {
         BInvokableSymbol workerSymbol = Symbols.createWorkerSymbol(Flags.asMask(workerNode.flagSet),
-                                                                   names.fromIdNode(workerNode.name),
-                                                                   env.enclPkg.symbol.pkgID, null, env.scope.owner);
+                names.fromIdNode(workerNode.name), env.enclPkg.symbol.pkgID, null, env.scope.owner);
         workerSymbol.markdownDocumentation = getMarkdownDocAttachment(workerNode.markdownDocumentationAttachment);
         workerNode.symbol = workerSymbol;
         defineSymbolWithCurrentEnvOwner(workerNode.pos, workerSymbol);
@@ -778,9 +788,7 @@ public class SymbolEnter extends BLangNodeVisitor {
     @Override
     public void visit(BLangService serviceNode) {
         BServiceSymbol serviceSymbol = Symbols.createServiceSymbol(Flags.asMask(serviceNode.flagSet),
-                                                                   names.fromIdNode(serviceNode.name),
-                                                                   env.enclPkg.symbol.pkgID, serviceNode.type,
-                                                                   env.scope.owner);
+                names.fromIdNode(serviceNode.name), env.enclPkg.symbol.pkgID, serviceNode.type, env.scope.owner);
         serviceSymbol.markdownDocumentation = getMarkdownDocAttachment(serviceNode.markdownDocumentationAttachment);
 
         BType serviceObjectType = serviceNode.serviceTypeDefinition.symbol.type;
@@ -814,9 +822,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         }
 
         BInvokableSymbol funcSymbol = Symbols.createFunctionSymbol(Flags.asMask(funcNode.flagSet),
-                                                                   getFuncSymbolName(funcNode),
-                                                                   env.enclPkg.symbol.pkgID, null, env.scope.owner,
-                                                                   funcNode.body != null);
+                getFuncSymbolName(funcNode), env.enclPkg.symbol.pkgID, null, env.scope.owner, funcNode.body != null);
         funcSymbol.markdownDocumentation = getMarkdownDocAttachment(funcNode.markdownDocumentationAttachment);
         SymbolEnv invokableEnv = SymbolEnv.createFunctionEnv(funcNode, funcSymbol.scope, env);
         defineInvokableSymbol(funcNode, funcSymbol, invokableEnv);
@@ -942,7 +948,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         Name name = names.fromIdNode(constant.name);
         PackageID pkgID = env.enclPkg.symbol.pkgID;
         return new BConstantSymbol(Flags.asMask(constant.flagSet), name, pkgID,
-                                   symTable.semanticError, symTable.noType, env.scope.owner);
+                symTable.semanticError, symTable.noType, env.scope.owner);
     }
 
     @Override
@@ -986,7 +992,7 @@ public class SymbolEnter extends BLangNodeVisitor {
 
         //if the varSymbol is invokable and if it is a function pointer which is not a function parameter
         if (varSymbol.type.tag == TypeTags.INVOKABLE &&
-                varNode.expr != null && varNode.expr.getKind() == NodeKind.LAMBDA) {
+                    varNode.expr != null && varNode.expr.getKind() == NodeKind.LAMBDA) {
             BLangFunction lambdaFunc = ((BLangLambdaFunction) varNode.expr).function;
             BInvokableSymbol invokableSymbol = (BInvokableSymbol) varSymbol;
             invokableSymbol.params = lambdaFunc.symbol.params;
@@ -1030,7 +1036,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         // If no duplicates, then define this attribute symbol.
         if (!bLangXMLAttribute.isNamespaceDeclr) {
             BXMLAttributeSymbol attrSymbol = new BXMLAttributeSymbol(qname.localname.value, qname.namespaceURI,
-                                                                     env.enclPkg.symbol.pkgID, env.scope.owner);
+                    env.enclPkg.symbol.pkgID, env.scope.owner);
             if (symResolver.checkForUniqueMemberSymbol(bLangXMLAttribute.pos, env, attrSymbol)) {
                 env.scope.define(attrSymbol.name, attrSymbol);
                 bLangXMLAttribute.symbol = attrSymbol;
@@ -1178,7 +1184,7 @@ public class SymbolEnter extends BLangNodeVisitor {
             return;
         }
     }
-
+    
     private boolean isValidAnnotationType(BType type) {
         if (type == symTable.semanticError) {
             return false;
@@ -1207,7 +1213,8 @@ public class SymbolEnter extends BLangNodeVisitor {
     }
 
     /**
-     * Visit each compilation unit (.bal file) and add each top-level node in the compilation unit to the package node.
+     * Visit each compilation unit (.bal file) and add each top-level node
+     * in the compilation unit to the package node.
      *
      * @param pkgNode current package node
      */
@@ -1217,10 +1224,10 @@ public class SymbolEnter extends BLangNodeVisitor {
     }
 
     /**
-     * Visit each compilation unit (.bal file) and add each top-level node in the compilation unit to the testable
-     * package node.
+     * Visit each compilation unit (.bal file) and add each top-level node in the compilation unit to the
+     * testable package node.
      *
-     * @param pkgNode        current package node
+     * @param pkgNode current package node
      * @param enclPkgImports imports of the enclosed package
      */
     private void populatePackageNode(BLangTestablePackage pkgNode, List<BLangImportPackage> enclPkgImports) {
@@ -1292,11 +1299,11 @@ public class SymbolEnter extends BLangNodeVisitor {
             SymbolEnv typeDefEnv = SymbolEnv.createTypeEnv(errorTypeNode, typeDef.symbol.scope, pkgEnv);
 
             BType reasonType = Optional.ofNullable(errorTypeNode.reasonType)
-                    .map(bLangType -> symResolver.resolveTypeNode(bLangType, typeDefEnv))
-                    .orElse(symTable.stringType);
+                                        .map(bLangType -> symResolver.resolveTypeNode(bLangType, typeDefEnv))
+                                        .orElse(symTable.stringType);
             BType detailType = Optional.ofNullable(errorTypeNode.detailType)
-                    .map(bLangType -> symResolver.resolveTypeNode(bLangType, typeDefEnv))
-                    .orElse(symTable.detailType);
+                                        .map(bLangType -> symResolver.resolveTypeNode(bLangType, typeDefEnv))
+                                        .orElse(symTable.detailType);
 
             if (reasonType == symTable.stringType && detailType == symTable.detailType) {
                 typeDef.symbol.type = symTable.errorType;
@@ -1464,9 +1471,9 @@ public class SymbolEnter extends BLangNodeVisitor {
     /**
      * Define a symbol that is unique only for the current scope.
      *
-     * @param pos    Line number information of the source file
+     * @param pos Line number information of the source file
      * @param symbol Symbol to be defines
-     * @param env    Environment to define the symbol
+     * @param env Environment to define the symbol
      */
     public void defineShadowedSymbol(DiagnosticPos pos, BSymbol symbol, SymbolEnv env) {
         symbol.scope = new Scope(symbol);
@@ -1671,7 +1678,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         if (funcNode.receiver.type.tag == TypeTags.OBJECT
                 && !this.env.enclPkg.symbol.pkgID.equals(funcNode.receiver.type.tsymbol.pkgID)) {
             dlog.error(funcNode.receiver.pos, DiagnosticCode.FUNC_DEFINED_ON_NON_LOCAL_TYPE,
-                       funcNode.name.value, funcNode.receiver.type.toString());
+                    funcNode.name.value, funcNode.receiver.type.toString());
             return false;
         }
         return true;
@@ -1698,9 +1705,8 @@ public class SymbolEnter extends BLangNodeVisitor {
         docAttachment.description = docNode.getDocumentation();
 
         docNode.getParameters().forEach(p ->
-                                                docAttachment.parameters
-                                                        .add(new MarkdownDocAttachment.Parameter(p.parameterName.value,
-                                                                                                 p.getParameterDocumentation())));
+                docAttachment.parameters.add(new MarkdownDocAttachment.Parameter(p.parameterName.value,
+                        p.getParameterDocumentation())));
 
         docAttachment.returnValueDescription = docNode.getReturnParameterDocumentation();
         return docAttachment;
@@ -1714,8 +1720,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         BLangTypeDefinition typeDef = (BLangTypeDefinition) typeDefNode;
         // This is only to keep the flow running so that at the end there will be proper semantic errors
         typeDef.symbol = Symbols.createTypeSymbol(SymTag.TYPE_DEF, Flags.asMask(typeDef.flagSet),
-                                                  names.fromIdNode(typeDef.name), env.enclPkg.symbol.pkgID,
-                                                  typeDef.typeNode.type, env.scope.owner);
+                names.fromIdNode(typeDef.name), env.enclPkg.symbol.pkgID, typeDef.typeNode.type, env.scope.owner);
         typeDef.symbol.scope = env.scope;
 
         // Todo - Add more kinds.
@@ -1970,18 +1975,18 @@ public class SymbolEnter extends BLangNodeVisitor {
         BLangIdentifier pkgName = importPkgNode.pkgNameComps.get(importPkgNode.pkgNameComps.size() - 1);
         return pkgName.value.equals(importSymbol.pkgID.name.value);
     }
-
+    
     /**
      * Holds imports that are resolved and unresolved.
      */
     public static class ImportResolveHolder {
         public BLangImportPackage resolved;
         public List<BLangImportPackage> unresolved;
-
+    
         public ImportResolveHolder() {
             this.unresolved = new ArrayList<>();
         }
-
+        
         public ImportResolveHolder(BLangImportPackage resolved) {
             this.resolved = resolved;
             this.unresolved = new ArrayList<>();

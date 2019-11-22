@@ -33,26 +33,50 @@ public type Listener object {
     private ListenerConfiguration config = {};
     private string instanceId;
 
+    # Starts the registered service programmatically.
+    #
+    # + return - An `error` if an error occurred during the listener starting process
     public function __start() returns error? {
         return self.start();
     }
 
+    # Stops the service listener gracefully. Already-accepted requests will be served before connection closure.
+    #
+    # + return - An `error` if an error occurred during the listener stopping process
     public function __gracefulStop() returns error? {
-        return ();
+        return self.gracefulStop();
     }
 
+    # Stops the service listener immediately. It is not implemented yet.
+    #
+    # + return - An `error` if an error occurred during the listener stop process
     public function __immediateStop() returns error? {
-        return self.stop();
+        error err = error("not implemented");
+        return err;
     }
 
+    # Attach a service to the listener.
+    #
+    # + s - The service that needs to be attached
+    # + name - Name of the service
+    # + return - An `error` an error occurred during the service attachment process or else nil
     public function __attach(service s, string? name = ()) returns error? {
         return self.register(s, name);
     }
 
+    # Detaches a Http or WebSocket service from the listener. Note that detaching a WebSocket service would not affect
+    # the functionality of the existing connections.
+    #
+    # + s - The service to be detached
+    # + return - error if occurred during detaching of a service or `nil`
     public function __detach(service s) returns error? {
         return self.detach(s);
     }
 
+    # Gets invoked during module initialization to initialize the listener.
+    #
+    # + port - Listening port of the HTTP service listener
+    # + c - Configurations for HTTP service listener
     public function __init(int port, public ListenerConfiguration? config = ()) {
         self.instanceId = system:uuid();
         self.config = config ?: {};
@@ -92,21 +116,23 @@ public type Listener object {
     #
     # + s - The service that needs to be attached
     # + name - Name of the service
-    # + return - An `error` if there is any error occurred during the service attachment process or else nil
+    # + return - An `error` if an error occurred during the service attachment process or else nil
     function register(service s, string? name) returns error? = external;
 
     # Starts the registered service.
-    # + return - An `error` if there is any error occurred during the listener start process
+    #
+    # + return - An `error` if an error occurred during the listener start process
     function start() returns error? = external;
 
-    # Stops the registered service.
-    # + return - An `error` if there is any error occurred during the listener stop process
-    function stop() returns error? = external;
+    # Stops the service listener gracefully.
+    #
+    # + return - An `error` if an error occurred during the listener stop process
+    function gracefulStop() returns error? = external;
 
     # Disengage an attached service from the listener.
     #
     # + s - The service that needs to be detached
-    # + return - An `error` if there is any error occurred during the service detachment process or else nil
+    # + return - An `error` if an error occurred during the service detachment process or else nil
     function detach(service s) returns error? = external;
 };
 
@@ -179,16 +205,16 @@ public type ListenerHttp1Settings record {|
 
 # Authentication configurations for the listener.
 #
-# + authHandlers - An array of inbound authentication handlers or an array consisting of arrays of inbound authentication handlers.
+# + authHandlers - An array of inbound authentication handlers or an array consisting of arrays of inbound authentication handlers
 # An array is used to indicate that at least one of the authentication handlers should be successfully authenticated. An array consisting of arrays
 # is used to indicate that at least one authentication handler from the sub-arrays should be successfully authenticated.
 # + scopes - An array of scopes or an array consisting of arrays of scopes. An array is used to indicate that at least one of the scopes should
 # be successfully authorized. An array consisting of arrays is used to indicate that at least one scope from the sub-arrays
-# should successfully be authorozed.
-# + positiveAuthzCache - The caching configurations for positive authorizations.
-# + negativeAuthzCache - The caching configurations for negative authorizations.
-# + mandateSecureSocket - Specify whether secure socket configurations are mandatory or not.
-# + position - The authn/authz filter position of the filter array. The position values starts from 0 and it is set to 0 implicitly.
+# should successfully be authorized
+# + positiveAuthzCache - The caching configurations for positive authorizations
+# + negativeAuthzCache - The caching configurations for negative authorizations
+# + mandateSecureSocket - Specify whether secure socket configurations are mandatory or not
+# + position - The authn/authz filter position of the filter array. The position values starts from 0 and it is set to 0 implicitly
 public type ListenerAuth record {|
     InboundAuthHandler[]|InboundAuthHandler[][] authHandlers;
     string[]|string[][] scopes?;
@@ -210,7 +236,7 @@ public type ListenerAuth record {|
 # + certValidation - Certificate validation against CRL or OCSP related options
 # + ciphers - List of ciphers to be used (e.g.: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 #             TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA)
-# + sslVerifyClient - The type of client certificate verification
+# + sslVerifyClient - The type of client certificate verification. (e.g.: "require" or "optional")
 # + shareSession - Enable/disable new SSL session creation
 # + handshakeTimeoutInSeconds - SSL handshake time out
 # + sessionTimeoutInSeconds - SSL session time out

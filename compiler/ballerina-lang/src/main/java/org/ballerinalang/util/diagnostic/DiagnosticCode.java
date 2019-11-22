@@ -39,6 +39,7 @@ public enum DiagnosticCode {
     UNDEFINED_FUNCTION_IN_OBJECT("undefined.function.in.object"),
     UNDEFINED_CONNECTOR("undefined.connector"),
     INVALID_ERROR_REASON_TYPE("invalid.error.reason.type"),
+    UNSUPPORTED_ERROR_REASON_CONST_MATCH("error.match.over.const.reason.ref.not.supported"),
     NON_MODULE_QUALIFIED_ERROR_REASON("non.module.qualified.error.reason"),
     INVALID_ERROR_DETAIL_TYPE("invalid.error.detail.type"),
     ERROR_DETAIL_ARG_IS_NOT_NAMED_ARG("error.detail.arg.not.named.arg"),
@@ -87,7 +88,6 @@ public enum DiagnosticCode {
     MISSING_REQUIRED_PARAMETER("missing.required.parameter"),
 
     INCOMPATIBLE_TYPES("incompatible.types"),
-    INCOMPATIBLE_TYPES_EXP_TUPLE("incompatible.types.exp.tuple"),
     UNKNOWN_TYPE("unknown.type"),
     BINARY_OP_INCOMPATIBLE_TYPES("binary.op.incompatible.types"),
     UNARY_OP_INCOMPATIBLE_TYPES("unary.op.incompatible.types"),
@@ -188,6 +188,9 @@ public enum DiagnosticCode {
     UNSAFE_CONVERSION_ATTEMPT("unsafe.conversion.attempt"),
 
     INVALID_LITERAL_FOR_TYPE("invalid.literal.for.type"),
+    INCOMPATIBLE_MAPPING_CONSTRUCTOR("incompatible.mapping.constructor.expression"),
+    MAPPING_CONSTRUCTOR_COMPATIBLE_TYPE_NOT_FOUND("mapping.constructor.compatible.type.not.found"),
+    CANNOT_INFER_TYPES_FOR_TUPLE_BINDING("cannot.infer.types.for.tuple.binding"),
     INVALID_LITERAL_FOR_MATCH_PATTERN("invalid.literal.for.match.pattern"),
     INVALID_EXPR_WITH_TYPE_GUARD_FOR_MATCH_PATTERN("invalid.expr.with.type.guard.for.match"),
     ARRAY_LITERAL_NOT_ALLOWED("array.literal.not.allowed"),
@@ -203,7 +206,6 @@ public enum DiagnosticCode {
     INVALID_FUNCTION_POINTER_INVOCATION("invalid.function.pointer.invocation"),
     AMBIGUOUS_TYPES("ambiguous.type"),
 
-    NOT_ENOUGH_ARGS_FUNC_CALL("not.enough.args.call"),
     TOO_MANY_ARGS_FUNC_CALL("too.many.args.call"),
     NON_PUBLIC_ARG_ACCESSED_WITH_NAMED_ARG("non.public.arg.accessed.with.named.arg"),
     ASSIGNMENT_COUNT_MISMATCH("assignment.count.mismatch"),
@@ -265,7 +267,8 @@ public enum DiagnosticCode {
     INVALID_ARRAY_ELEMENT_TYPE("invalid.array.element.type"),
     INVALID_TUPLE_BINDING_PATTERN("invalid.tuple.binding.pattern"),
     INVALID_TYPE_FOR_TUPLE_VAR_EXPRESSION("invalid.type.for.tuple.var.expr"),
-    INVALID_TYPE_DEFINITION_FOR_TUPLE_VAR("invalid.type.definition.for.tuple.var"),
+    INVALID_TUPLE_BINDING_PATTERN_DECL("invalid.tuple.binding.pattern.decl"),
+    INVALID_TUPLE_BINDING_PATTERN_INFERENCE("invalid.tuple.binding.pattern.inference"),
     MISMATCHING_ARRAY_LITERAL_VALUES("mismatching.array.literal.values"),
     SEALED_ARRAY_TYPE_NOT_INITIALIZED("sealed.array.type.not.initialized"),
     INVALID_LIST_INDEX_EXPR("invalid.list.index.expr"),
@@ -290,7 +293,6 @@ public enum DiagnosticCode {
     INVALID_ERROR_REASON_BINDING_PATTERN("invalid.error.reason.binding.pattern"),
     INVALID_ERROR_REST_BINDING_PATTERN("invalid.error.rest.binding.pattern"),
     INVALID_TYPE_DEFINITION_FOR_ERROR_VAR("invalid.type.definition.for.error.var"),
-    INVALID_ERROR_LITERAL_BINDING_PATTERN("invalid.error.literal.in.binding.pattern"),
     INVALID_ERROR_DESTRUCTURING_NO_REASON_GIVEN("invalid.error.destructuring.reason"),
     INVALID_ERROR_MATCH_PATTERN("invalid.error.match.pattern"),
     DUPLICATE_VARIABLE_IN_BINDING_PATTERN("duplicate.variable.in.binding.pattern"),
@@ -302,6 +304,7 @@ public enum DiagnosticCode {
     XML_QNAME_UPDATE_NOT_ALLOWED("xml.qname.update.not.allowed"),
     INVALID_NAMESPACE_DECLARATION("invalid.namespace.declaration"),
     CANNOT_UPDATE_XML_SEQUENCE("cannot.update.xml.sequence"),
+    INVALID_XML_NS_INTERPOLATION("invalid.xml.ns.interpolation"),
 
     UNDEFINED_ANNOTATION("undefined.annotation"),
     ANNOTATION_NOT_ALLOWED("annotation.not.allowed"),
@@ -325,6 +328,9 @@ public enum DiagnosticCode {
     VARIABLE_ALREADY_DOCUMENTED("variable.already.documented"),
     UNDOCUMENTED_RETURN_PARAMETER("undocumented.return.parameter"),
     NO_DOCUMENTABLE_RETURN_PARAMETER("no.documentable.return.parameter"),
+    INVALID_DOCUMENTATION_IDENTIFIER("invalid.documentation.identifier"),
+    INVALID_DOCUMENTATION_REFERENCE("invalid.documentation.reference"),
+    INVALID_USAGE_OF_PARAMETER_REFERENCE("invalid.use.of.parameter.reference"),
 
     NO_SUCH_DOCUMENTABLE_ATTRIBUTE("no.such.documentable.attribute"),
     INVALID_USE_OF_ENDPOINT_DOCUMENTATION_ATTRIBUTE("invalid.use.of.endpoint.documentation.attribute"),
@@ -353,7 +359,6 @@ public enum DiagnosticCode {
     MATCH_STMT_UNMATCHED_PATTERN("match.stmt.unmatched.pattern"),
     MATCH_STMT_PATTERN_ALWAYS_MATCHES("match.stmt.pattern.always.matches"),
     MATCH_STMT_CONTAINS_TWO_DEFAULT_PATTERNS("match.stmt.contains.two.default.patterns"),
-    CANNOT_FIND_MATCH_ERROR_REASON_CONST("can.not.find.match.error.reason.const"),
 
     THROW_STMT_NOT_SUPPORTED("throw.stmt.not.supported"),
     TRY_STMT_NOT_SUPPORTED("try.stmt.not.supported"),
@@ -369,6 +374,7 @@ public enum DiagnosticCode {
     CHECKED_EXPR_INVALID_USAGE_NO_ERROR_TYPE_IN_RHS("checked.expr.invalid.usage.no.error.type.rhs"),
     CHECKED_EXPR_INVALID_USAGE_ALL_ERROR_TYPES_IN_RHS("checked.expr.invalid.usage.only.error.types.rhs"),
     CHECKED_EXPR_NO_ERROR_RETURN_IN_ENCL_INVOKABLE("checked.expr.no.error.return.in.encl.invokable"),
+    CHECKED_EXPR_NO_MATCHING_ERROR_RETURN_IN_ENCL_INVOKABLE("checked.expr.no.matching.error.return.in.encl.invokable"),
 
     START_REQUIRE_INVOCATION("start.require.invocation"),
     INVALID_EXPR_STATEMENT("invalid.expr.statement"),
@@ -464,7 +470,6 @@ public enum DiagnosticCode {
     // Type Param related error codes.
     TYPE_PARAM_OUTSIDE_LANG_MODULE("type.param.outside.lang.module"),
 
-    VERSIONED_IMPORT_NOT_SUPPORTED("versioned.import.not.supported"),
     INVALID_INVOCATION_LVALUE_ASSIGNMENT("invalid.lvalue.lhs.of.assignment"),
     INVALID_INVOCATION_LVALUE_COMPOUND_ASSIGNMENT("invalid.lvalue.lhs.of.compound.assignment"),
 

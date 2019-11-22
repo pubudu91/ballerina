@@ -14,29 +14,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Represents the details of an error.
+# Record type to hold the details of an error.
 #
-# + message - The error message.
-# + cause - Cause of the error.
-type Detail record {
+# + message - Specific error message of the error.
+# + cause - Any other error, which causes this error.
+public type Detail record {
     string message;
     error cause?;
 };
 
+# Identifies invalid operation error.
 public const INVALID_OPERATION_ERROR = "{ballerina/file}InvalidOperationError";
 
+# Represents an error that occurs when a file system operation is denied due to invalidity.
 public type InvalidOperationError error<INVALID_OPERATION_ERROR, Detail>;
 
+# Identifies permission error.
 public const PERMISSION_ERROR = "{ballerina/file}PermissionError";
-
+# Represents an error that occurs when a file system operation is denied, due to the absence of file permission.
 public type PermissionError error<PERMISSION_ERROR, Detail>;
 
+# Identifies file system error.
 public const FILE_SYSTEM_ERROR = "{ballerina/file}FileSystemError";
-
+# Represents an error that occurs when a file system operation fails.
 public type FileSystemError error<FILE_SYSTEM_ERROR, Detail>;
 
+# Identifies file not found error.
 public const FILE_NOT_FOUND_ERROR = "{ballerina/file}FileNotFoundError";
-
+# Represents an error that occurs when the file/directory does not exist at the given filepath.
 public type FileNotFoundError error<FILE_NOT_FOUND_ERROR, Detail>;
 
+# Represents file system related errors.
 public type Error InvalidOperationError|PermissionError|FileSystemError|FileNotFoundError;

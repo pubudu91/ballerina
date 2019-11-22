@@ -32,13 +32,15 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -52,35 +54,33 @@ public class BootstrapRunner {
     private static final PrintStream out = System.out;
     private static final PrintStream err = System.err;
 
-    public static void loadTargetAndGenerateJarBinary(Path tmpDir, String entryBir, String jarOutputPath,
-                                                      boolean dumpBir, String... birCachePaths) {
-
-        //Load all Jars from target/tmp
-        if (Files.exists(tmpDir)) {
-            File file = new File(tmpDir.toString());
-            try {
-                loadAllJarsInTarget(file);
-            } catch (MalformedURLException | NoSuchMethodException |
-                    InvocationTargetException | IllegalAccessException e) {
-                throw new RuntimeException("could not load pre-compiled jars for invoking the compiler backend", e);
-            }
-        }
-
-        generateJarBinary(entryBir, jarOutputPath, dumpBir, birCachePaths);
+    public static void loadTargetAndGenerateJarBinary(String entryBir, String jarOutputPath, boolean dumpBir,
+                                                      HashSet<Path> moduleDependencySet, String... birCachePaths) {
+        //Load all Jars from module dependency set.
+        List<String> jarFilePaths = new ArrayList<>(moduleDependencySet.size());
+        moduleDependencySet.forEach(path -> jarFilePaths.add(path.toString()));
+        generateJarBinary(entryBir, jarOutputPath, dumpBir, false, jarFilePaths, birCachePaths);
     }
 
     private static void generateJarBinary(String entryBir, String jarOutputPath, boolean dumpBir,
+                                          boolean useSystemClassLoader, List<String> jarFilePaths,
                                           String... birCachePaths) {
         try {
             Class<?> backendMain = Class.forName("ballerina.compiler_backend_jvm.___init");
             Method backendMainMethod = backendMain.getMethod("main", String[].class);
-            List<String> params = createArgsForCompilerBackend(entryBir, jarOutputPath, dumpBir, birCachePaths);
+            List<String> params = createArgsForCompilerBackend(entryBir, jarOutputPath, dumpBir,
+                                                               useSystemClassLoader, birCachePaths, jarFilePaths);
             backendMainMethod.invoke(null, new Object[]{params.toArray(new String[0])});
         } catch (InvocationTargetException e) {
             throw new BLangCompilerException(e.getTargetException().getMessage(), e);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
             throw new BLangCompilerException("could not invoke compiler backend", e);
         }
+    }
+
+    private static void generateJarBinary(String entryBir, String jarOutputPath, boolean dumpBir,
+                                          String... birCachePaths) {
+        generateJarBinary(entryBir, jarOutputPath, dumpBir, true, Collections.emptyList(), birCachePaths);
     }
 
     private static void generateJarBinaryInProc(String entryBir, String jarOutputPath, boolean dumpBir,
@@ -91,7 +91,8 @@ public class BootstrapRunner {
             commands.add("-cp");
             commands.add(System.getProperty("java.class.path"));
             commands.add("ballerina.compiler_backend_jvm.___init");
-            commands.addAll(createArgsForCompilerBackend(entryBir, jarOutputPath, dumpBir, birCachePaths));
+            commands.addAll(createArgsForCompilerBackend(entryBir, jarOutputPath, dumpBir, true,
+                                                         birCachePaths, Collections.emptyList()));
 
             Process process = new ProcessBuilder(commands).start();
 
@@ -122,38 +123,28 @@ public class BootstrapRunner {
     }
 
     private static List<String> createArgsForCompilerBackend(String entryBir, String jarOutputPath, boolean dumpBir,
-                                                             String[] birCachePaths) {
+                                                             boolean useSystemClassLoader, String[] birCachePaths,
+                                                             List<String> jarFilePaths) {
         List<String> commands = new ArrayList<>();
         commands.add(entryBir);
         commands.add(getMapPath());
         commands.add(jarOutputPath);
         commands.add(dumpBir ? "true" : "false"); // dump bir
+        commands.add(useSystemClassLoader ? "true" : "false"); // useSystemClassLoader
+        commands.add(String.valueOf(birCachePaths.length));
         commands.addAll(Arrays.asList(birCachePaths));
+        commands.addAll(jarFilePaths);
         return commands;
     }
 
-    private static void loadAllJarsInTarget(final File targetFolder) throws MalformedURLException,
-            NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        for (final File file : targetFolder.listFiles()) {
-            if (file.isDirectory()) {
-                loadAllJarsInTarget(file);
-            } else {
-                URL url = file.toURI().toURL();
-                URLClassLoader classLoader = (URLClassLoader) ClassLoader.getSystemClassLoader();
-                Method method = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-                method.setAccessible(true);
-                method.invoke(classLoader, url);
-            }
-        }
-    }
 
     private static String getMapPath() {
         String ballerinaNativeMap = System.getenv("BALLERINA_NATIVE_MAP");
         return ballerinaNativeMap == null ? "" : ballerinaNativeMap;
     }
 
-    public static void writeNonEntryPkgs(List<BPackageSymbol> imports, Path birCache, Path importsBirCache,
-                                         Path jarTargetDir, boolean dumpBir)
+    private static void writeNonEntryPkgs(List<BPackageSymbol> imports, Path birCache, Path importsBirCache,
+                                          Path jarTargetDir, boolean dumpBir)
             throws IOException {
         for (BPackageSymbol pkg : imports) {
             PackageID id = pkg.pkgID;
@@ -161,15 +152,7 @@ public class BootstrapRunner {
             //Todo: Remove ballerinax check after fixing it by the packerina team
             if (!"ballerina".equals(id.orgName.value) && !"ballerinax".equals(id.orgName.value)) {
                 writeNonEntryPkgs(pkg.imports, birCache, importsBirCache, jarTargetDir, dumpBir);
-
-                byte[] bytes = PackageFileWriter.writePackage(pkg.birPackageFile);
-                Path pkgBirDir = importsBirCache.resolve(id.orgName.value)
-                                                .resolve(id.name.value)
-                                                .resolve(id.version.value.isEmpty() ? "0.0.0" : id.version.value);
-                Files.createDirectories(pkgBirDir);
-                Path pkgBir = pkgBirDir.resolve(id.name.value + ".bir");
-                Files.write(pkgBir, bytes);
-
+                Path pkgBir = getModuleBir(pkg, importsBirCache);
                 String jarOutputPath = jarTargetDir.resolve(id.name.value + ".jar").toString();
                 generateJarBinary(pkgBir.toString(), jarOutputPath, dumpBir, birCache.toString(),
                                   importsBirCache.toString());
@@ -177,11 +160,24 @@ public class BootstrapRunner {
         }
     }
 
-    public static JBallerinaInMemoryClassLoader createClassLoaders(BLangPackage bLangPackage,
-                                                                   Path systemBirCache,
-                                                                   Path buildRoot,
-                                                                   Optional<Path> jarTargetRoot,
-                                                                   boolean dumpBir, boolean onProc) throws IOException {
+    private static Path getModuleBir(BPackageSymbol pkg, Path importsBirCache) throws IOException {
+        PackageID id = pkg.pkgID;
+        byte[] bytes = PackageFileWriter.writePackage(pkg.birPackageFile);
+        Path pkgBirDir = importsBirCache.resolve(id.orgName.value)
+                .resolve(id.name.value)
+                .resolve(id.version.value.isEmpty() ? "0.0.0" : id.version.value);
+        Files.createDirectories(pkgBirDir);
+        Path pkgBir = pkgBirDir.resolve(id.name.value + ".bir");
+        Files.write(pkgBir, bytes);
+        return pkgBir;
+    }
+
+    public static URLClassLoader createClassLoaders(BLangPackage bLangPackage,
+                                                 Path systemBirCache,
+                                                 Path buildRoot,
+                                                 Optional<Path> jarTargetRoot,
+                                                 boolean dumpBir, boolean onProc) throws IOException {
+
         byte[] bytes = PackageFileWriter.writePackage(bLangPackage.symbol.birPackageFile);
         String fileName = calcFileNameForJar(bLangPackage);
         Files.createDirectories(buildRoot);
@@ -206,8 +202,20 @@ public class BootstrapRunner {
         if (!Files.exists(jarTarget)) {
             throw new RuntimeException("Compiled binary jar is not found: " + jarTarget);
         }
-
-        return new JBallerinaInMemoryClassLoader(jarTarget, importsTarget.toFile());
+        int index = 0;
+        URL[] urls;
+        File importsCache = importsTarget.toFile();
+        if (importsCache.isDirectory()) {
+            String[] jarFIles = importsCache.list();
+            urls = new URL[jarFIles.length + 1];
+            for (String file : jarFIles) {
+                urls[index++] = Paths.get(importsCache.getPath(), file).toUri().toURL();
+            }
+        } else {
+            urls = new URL[1];
+        }
+        urls[index] = jarTarget.toFile().toURI().toURL();
+        return new URLClassLoader(urls);
     }
 
     private static String calcFileNameForJar(BLangPackage bLangPackage) {

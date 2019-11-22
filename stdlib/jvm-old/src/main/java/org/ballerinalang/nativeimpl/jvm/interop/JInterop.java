@@ -74,6 +74,7 @@ class JInterop {
     static final String UNION_TYPE_MEMBERS_FIELD = "members";
     static final String TUPLE_TYPE_MEMBERS_FIELD = "tupleTypes";
     static final String ARRAY_ELEMENT_TYPE_FIELD = "eType";
+    static final String CLASS_LOADER_DATA = "class_loader";
 
     static final String RECORD_TNAME = "record";
     static final String OBJECT_TNAME = "object";
@@ -83,6 +84,7 @@ class JInterop {
 
     //jvm type names
     static final String J_OBJECT_TNAME = Object.class.getTypeName();
+    static final String J_STRING_TNAME = String.class.getTypeName();
     static final String J_BOOLEAN_OBJ_TNAME = Boolean.class.getTypeName();
     static final String J_INTEGER_OBJ_TNAME = Integer.class.getTypeName();
     static final String J_BYTE_OBJ_TNAME = Byte.class.getTypeName();
@@ -192,7 +194,7 @@ class JInterop {
         return false;
     }
 
-    static ParamTypeConstraint[] buildParamTypeConstraints(ArrayValue javaTypeConstraints) {
+    static ParamTypeConstraint[] buildParamTypeConstraints(ArrayValue javaTypeConstraints, ClassLoader classLoader) {
         if (javaTypeConstraints == null) {
             return new ParamTypeConstraint[0];
         }
@@ -200,16 +202,16 @@ class JInterop {
         List<ParamTypeConstraint> constraintList = new ArrayList<>();
         for (int paramIndex = 0; paramIndex < javaTypeConstraints.size(); paramIndex++) {
             Object javaTypeConstraint = javaTypeConstraints.get(paramIndex);
-            constraintList.add(buildParamTypeConstraint(javaTypeConstraint));
+            constraintList.add(buildParamTypeConstraint(javaTypeConstraint, classLoader));
         }
         return constraintList.toArray(new ParamTypeConstraint[0]);
     }
 
-    private static ParamTypeConstraint buildParamTypeConstraint(Object javaTypeConstraint) {
+    private static ParamTypeConstraint buildParamTypeConstraint(Object javaTypeConstraint, ClassLoader classLoader) {
         if (isJavaRefType(javaTypeConstraint)) {
-            return buildConstraintFromJavaRefType((MapValue<String, Object>) javaTypeConstraint);
+            return buildConstraintFromJavaRefType((MapValue<String, Object>) javaTypeConstraint, classLoader);
         } else if (isJavaArrayType(javaTypeConstraint)) {
-            return buildConstraintFromJavaArrayType((MapValue<String, Object>) javaTypeConstraint);
+            return buildConstraintFromJavaArrayType((MapValue<String, Object>) javaTypeConstraint, classLoader);
         } else if (isJavaNoType(javaTypeConstraint)) {
             return ParamTypeConstraint.NO_CONSTRAINT;
         } else {
@@ -217,14 +219,16 @@ class JInterop {
         }
     }
 
-    private static ParamTypeConstraint buildConstraintFromJavaRefType(MapValue<String, Object> javaRefType) {
+    private static ParamTypeConstraint buildConstraintFromJavaRefType(MapValue<String, Object> javaRefType,
+                                                                      ClassLoader classLoader) {
         String constraintBValue = (String) javaRefType.get(TYPE_NAME_FIELD);
-        return new ParamTypeConstraint(loadClass(constraintBValue));
+        return new ParamTypeConstraint(loadClass(constraintBValue, classLoader));
     }
 
-    private static ParamTypeConstraint buildConstraintFromJavaArrayType(MapValue<String, Object> javaRefType) {
+    private static ParamTypeConstraint buildConstraintFromJavaArrayType(MapValue<String, Object> javaRefType,
+                                                                        ClassLoader classLoader) {
         String typeSig = getJavaArrayTypeSig(javaRefType);
-        return new ParamTypeConstraint(loadClass(typeSig));
+        return new ParamTypeConstraint(loadClass(typeSig, classLoader));
     }
 
     private static String getJavaArrayTypeSig(MapValue<String, Object> javaRefType) {
@@ -334,10 +338,10 @@ class JInterop {
         }
     }
 
-    static Class<?> loadClass(String className) {
+    static Class<?> loadClass(String className, ClassLoader classLoader) {
         try {
-            return Class.forName(className.replace("/", "."));
-        } catch (ClassNotFoundException e) {
+            return Class.forName(className.replace("/", "."), false, classLoader);
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
             throw new JInteropException(CLASS_NOT_FOUND_REASON, e.getMessage(), e);
         }
     }

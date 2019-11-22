@@ -33,7 +33,7 @@ public class FunctionDefinitionCompletionTest extends CompletionTest {
 
     private static final Logger log = LoggerFactory.getLogger(FunctionDefinitionCompletionTest.class);
 
-    @Test(dataProvider = "completion-data-provider")
+    @Test(dataProvider = "completion-data-provider", enabled = false)
     public void test(String config, String configPath) throws WorkspaceDocumentException, IOException {
         super.test(config, configPath);
     }
@@ -102,6 +102,8 @@ public class FunctionDefinitionCompletionTest extends CompletionTest {
                 {"workerDeclarationContext2.json", "function"},
                 {"workerDeclarationContext3.json", "function"},
                 {"workerDeclarationContext4.json", "function"},
+                {"workerDeclarationContext5.json", "function"},
+                {"workerDeclarationContext6.json", "function"},
                 {"completionWithinInvocationArgs1.json", "function"},
                 {"completionWithinInvocationArgs2.json", "function"},
 //                {"completionWithinInvocationArgs3.json", "function"},
@@ -113,11 +115,15 @@ public class FunctionDefinitionCompletionTest extends CompletionTest {
                 {"completionWithinInvocationArgs9.json", "function"},
                 {"completionWithinInvocationArgs10.json", "function"},
                 {"completionWithinInvocationArgs11.json", "function"},
+                {"completionWithinInvocationArgs12.json", "function"},
+                {"completionWithinInvocationArgs13.json", "function"},
                 {"chainCompletion1.json", "function"},
                 {"chainCompletion2.json", "function"},
                 {"chainCompletion3.json", "function"},
                 {"chainCompletion4.json", "function"},
                 {"chainCompletion5.json", "function"},
+                {"chainCompletion6.json", "function"},
+                {"chainCompletion7.json", "function"},
                 {"externalKeywordSuggestion1.json", "function"},
                 {"externalKeywordSuggestion2.json", "function"},
 //                {"ifWhileConditionContextCompletion1.json", "function"}, //TODO: Fix this
@@ -162,8 +168,12 @@ public class FunctionDefinitionCompletionTest extends CompletionTest {
                 {"returnParameterContextSuggestion7.json", "function"},
                 {"returnParameterContextSuggestion8.json", "function"},
                 {"returnParameterContextSuggestion9.json", "function"},
+                {"returnParameterContextSuggestion10.json", "function"},
+                {"returnParameterContextSuggestion11.json", "function"},
                 {"typeDescSuggestions1.json", "function"},
                 {"typeDescSuggestions2.json", "function"},
+                {"delimiterBasedCompletionOverArrays.json", "function"},
+                {"delimiterBasedCompletionOverXML.json", "function"},
 //                {"statementWithMissingSemiColon1.json", "function"},
 //                {"statementWithMissingSemiColon2.json", "function"},
 //                {"statementWithMissingSemiColon3.json", "function"},

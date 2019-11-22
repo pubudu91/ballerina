@@ -15,22 +15,21 @@
 // under the License.
 
 import ballerina/lang.'object as lang;
+import ballerinax/java;
 
 # Represents a connection which will be used for subscription.
 public type Listener object {
 
     *lang:Listener;
-    private Connection connection;
+    private Connection conn;
 
-    # Creates a new consumer. A new connection will be created if a refernece to a connection is not provided.
+    # Creates a new consumer. A new connection will be created if a reference to a connection is not provided.
     #
-    # + c - An already-established connection or configuration to create a new connection.
-    public function __init(Connection c) {
-        self.connection = c;
-        self.init(c);
+    # + connection - An already-established connection or configuration to create a new connection.
+    public function __init(Connection connection) {
+        self.conn = connection;
+        consumerInit(self, connection);
     }
-
-    private function init(Connection c) = external;
 
     # Binds the NATS consumer to a service.
     #
@@ -38,34 +37,61 @@ public type Listener object {
     # + name - Name of the service.
     # + return - Returns nil or the error upon failure to register the listener.
     public function __attach(service s, string? name = ()) returns error? {
-        return self.register(s, name);
+        return basicRegister(self, s, name);
     }
 
     public function __detach(service s) returns error? {
+        return basicDetach(self, s);
     }
 
-    function register(service serviceType, string? name) returns error? = external;
-
-    # Starts the listener in the lifecyle.
+    # Starts the listener in the lifecycle.
     #
     # + return - Error or ().
     public function __start() returns error? {
-        return self.start();
+        return basicStart(self);
     }
 
-    function start() = external;
-
-    public function __gracefulStop() returns error? {
-        return self.gracefulStop();
-    }
-
-    # Stops the listener in the lifecyle.
+    # Gracefully stops the listener in the lifecycle.
     #
-    # + return - error or ().
-    public function __immediateStop() returns error? {
-        return self.immediateStop();
+    # + return - Error or ().
+    public function __gracefulStop() returns error? {
+        return basicGracefulStop(self);
     }
 
-    function gracefulStop() = external;
-    function immediateStop() = external;
+    # Forcefully stops the listener in the lifecycle.
+    #
+    # + return - Error or ().
+    public function __immediateStop() returns error? {
+        return basicImmediateStop(self);
+    }
 };
+
+function basicRegister(Listener lis, service serviceType, string? name) returns error? =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.Register"
+} external;
+
+function basicDetach(Listener lis, service serviceType) returns error? =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.Detach"
+} external;
+
+function basicStart(Listener lis) =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.Start"
+} external;
+
+function basicGracefulStop(Listener lis) =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.GracefulStop"
+} external;
+
+function basicImmediateStop(Listener lis) =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.ImmediateStop"
+} external;
+
+function consumerInit(Listener lis, Connection c) =
+@java:Method {
+    class: "org.ballerinalang.nats.basic.consumer.Init"
+} external;

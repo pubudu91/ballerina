@@ -14,10 +14,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-type Detail record {
+# Record type to hold the details of an error.
+#
+# + message - Specific error message of the error.
+# + cause - Any other error, which causes this error.
+public type Detail record {
     string message;
     error cause?;
 };
 
+# Represents the Crypto error reason.
 public const CRYPTO_ERROR = "{ballerina/crypto}Error";
+
+# Represents the Crypto error type with details.
 public type Error error<CRYPTO_ERROR, Detail>;

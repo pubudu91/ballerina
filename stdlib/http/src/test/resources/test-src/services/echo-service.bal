@@ -143,7 +143,7 @@ service echo on echoEP {
         methods:["POST"],
         path:"/parseJSON"
     }
-    resource function errorReturn(http:Caller caller, http:Request req) returns error? {
+    resource function errorReturn(http:Caller caller, http:Request req) returns @tainted error? {
         json payload = check req.getJsonPayload();
         http:Response res = new;
         res.setPayload(<@untainted json> payload);
@@ -162,5 +162,13 @@ service hello on echoEP {
     @http:ResourceConfig {}
     resource function echo(http:Caller caller, http:Request req) {
         checkpanic caller->respond("Uninitialized configs");
+    }
+
+    resource function testFunctionCall(http:Caller caller, http:Request req) {
+        checkpanic caller->respond(<@untained> self.nonRemoteFunctionCall());
+    }
+
+    function nonRemoteFunctionCall() returns string {
+        return "Non remote function invoked";
     }
 }

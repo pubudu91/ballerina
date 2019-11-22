@@ -22,6 +22,7 @@ import org.ballerinalang.jvm.types.BArrayType;
 import org.ballerinalang.jvm.types.BType;
 import org.ballerinalang.jvm.types.TypeTags;
 import org.ballerinalang.jvm.values.ArrayValue;
+import org.ballerinalang.jvm.values.ArrayValueImpl;
 import org.ballerinalang.jvm.values.ErrorValue;
 
 import java.io.IOException;
@@ -46,7 +47,7 @@ import static org.ballerinalang.jvm.util.BLangConstants.BBYTE_MIN_VALUE;
 public class RuntimeUtils {
 
     private static final String CRASH_LOGGER = "b7a.log.crash";
-    private static final String  DEFAULT_CRASH_LOG_FILE = "ballerina-internal.log";
+    private static final String DEFAULT_CRASH_LOG_FILE = "ballerina-internal.log";
     private static PrintStream errStream = System.err;
     public static final String USER_DIR = System.getProperty("user.dir");
     public static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
@@ -58,14 +59,14 @@ public class RuntimeUtils {
     /**
      * Used to handle rest args passed in to the main method.
      *
-     * @param args  args from main method
+     * @param args args from main method
      * @param index starting index of var args
-     * @param type  array type
+     * @param type array type
      * @return ArrayValue
      */
     public static ArrayValue createVarArgsArray(String[] args, int index, BArrayType type) {
 
-        ArrayValue array = new ArrayValue(type, type.getSize());
+        ArrayValue array = new ArrayValueImpl(type, type.getSize());
         for (int i = index; i < args.length; i++) {
             addToArray(type.getElementType(), args[i], array);
         }
@@ -152,12 +153,12 @@ public class RuntimeUtils {
     public static void handleInvalidConfig() {
         handleUsageError("value for option 'config' is missing");
     }
-    
+
     public static void handleUsageError(String errorMsg) {
         errStream.println("ballerina: " + errorMsg);
         Runtime.getRuntime().exit(1);
     }
-    
+
     public static void silentlyLogBadSad(Throwable throwable) {
         // These errors are unhandled errors in JVM, hence logging them to bre log.
         printCrashLog(throwable);

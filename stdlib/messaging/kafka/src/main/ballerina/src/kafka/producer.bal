@@ -46,7 +46,7 @@ import ballerina/system;
 # + connectionsMaxIdleTimeInMillis - Close idle connections after the number of milliseconds.
 # + transactionTimeoutInMillis - Timeout for transaction status update from the producer.
 # + enableIdempotence - Exactly one copy of each message is written in the stream when enabled.
-# + secureSocket - SSL/TLS related options
+# + secureSocket - Configurations related to SSL/TLS.
 public type ProducerConfig record {|
     string? bootstrapServers = ();
     Producer_Acks acks = ACKS_SINGLE;
@@ -82,15 +82,15 @@ public type ProducerConfig record {|
     SecureSocket secureSocket?;
 |};
 
-# Producer acknowledgement type `all`. This will gurantee that the record will not be lost as long as at least one
+# Producer acknowledgement type 'all'. This will gurantee that the record will not be lost as long as at least one
 # in-sync replica is alive.
 public const ACKS_ALL = "all";
 
-# Producer acknowledgement type `0`. If the acknowledgement type set to this, the producer will not wait for any
+# Producer acknowledgement type '0'. If the acknowledgement type set to this, the producer will not wait for any
 # acknowledgement from the server.
 public const ACKS_NONE = "0";
 
-# Producer acknowledgement type `1`. If the acknowledgement type set to this, the leader will write the record to its
+# Producer acknowledgement type '1'. If the acknowledgement type set to this, the leader will write the record to its
 # local log but will respond without awaiting full acknowledgement from all followers.
 public const ACKS_SINGLE = "1";
 
@@ -105,6 +105,9 @@ public type Producer client object {
 
     public ProducerConfig? producerConfig = ();
 
+    # Creates a new Kafka `Producer`.
+    #
+    # + config - Configurations related to initializing a Kafka `Producer`.
     public function __init(ProducerConfig config) {
         self.producerConfig = config;
         var result = self.init(config);

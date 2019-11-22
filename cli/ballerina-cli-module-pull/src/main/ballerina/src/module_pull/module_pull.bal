@@ -19,6 +19,7 @@ import ballerina/filepath;
 import ballerina/http;
 import ballerina/io;
 import ballerina/lang.'int as lint;
+import ballerina/lang.'string as lstring;
 import ballerina/stringutils;
 
 const int MAX_INT_VALUE = 2147483647;
@@ -275,7 +276,7 @@ function defineEndpointWithoutProxy(string url) returns http:Client{
 # + byteChannel - Byte channel
 # + numberOfBytes - Number of bytes to be read
 # + return - Read content as byte[] along with the number of bytes read, or error if read failed
-function readBytes(io:ReadableByteChannel byteChannel, int numberOfBytes) returns [byte[], int]|error {
+function readBytes(io:ReadableByteChannel byteChannel, int numberOfBytes) returns @tainted [byte[], int]|error {
     byte[] bytes = check (byteChannel.read(numberOfBytes));
     return <@untainted>[bytes, bytes.length()];
 }
@@ -302,7 +303,7 @@ function writeBytes(io:WritableByteChannel byteChannel, byte[] content, int star
 function copy(int baloSize, io:ReadableByteChannel src, io:WritableByteChannel dest,
               string modulePath, string toAndFrom, int width) {
     int terminalWidth = width - logFormatter.offset;
-    int bytesChunk = 8;
+    int bytesChunk = 8192;
     byte[] readContent = [];
     int readCount = -1;
     float totalCount = 0.0;
@@ -311,7 +312,7 @@ function copy(int baloSize, io:ReadableByteChannel src, io:WritableByteChannel d
     string equals = "==========";
     string tabspaces = "          ";
     boolean completed = false;
-    int rightMargin = 5;
+    int rightMargin = lstring:length(baloSize.toString());
     int totalVal = 10;
     int startVal = 0;
     int rightpadLength = terminalWidth - equals.length() - tabspaces.length() - rightMargin;
@@ -332,7 +333,7 @@ function copy(int baloSize, io:ReadableByteChannel src, io:WritableByteChannel d
         string msg = truncateString(modulePath + toAndFrom, terminalWidth - size.length());
         io:print("\r" + logFormatter.formatLog(<@untainted> (rightPad(msg, rightpadLength) + size)));
     }
-    io:println("\r" + logFormatter.formatLog(rightPad(modulePath + toAndFrom, terminalWidth)));
+    io:println("\r" + logFormatter.formatLog(modulePath + toAndFrom));
     return;
 }
 

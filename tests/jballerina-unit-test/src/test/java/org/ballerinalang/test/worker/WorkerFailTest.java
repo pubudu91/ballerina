@@ -16,13 +16,14 @@
  */
 package org.ballerinalang.test.worker;
 
-import org.ballerinalang.test.util.BAssertUtil;
 import org.ballerinalang.test.util.BCompileUtil;
 import org.ballerinalang.test.util.CompileResult;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+
+import static org.ballerinalang.test.util.BAssertUtil.validateError;
 
 /**
  * Negative worker related tests.
@@ -41,7 +42,7 @@ public class WorkerFailTest {
     public void invalidWorkSendWithoutWorker() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-worksend-without-worker.bal");
         Assert.assertEquals(result.getErrorCount(), 1);
-        BAssertUtil.validateError(result, 0, "undefined worker 'worker1'", 3, 12);
+        validateError(result, 0, "undefined worker 'worker1'", 3, 12);
     }
 
     @Test
@@ -56,14 +57,14 @@ public class WorkerFailTest {
     public void invalidReceiveBeforeWorkers() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-receive-before-workers.bal");
         Assert.assertEquals(result.getErrorCount(), 1);
-        BAssertUtil.validateError(result, 0, "undefined worker 'w1'", 2, 12);
+        validateError(result, 0, "undefined worker 'w1'", 2, 12);
     }
 
     @Test
     public void invalidSendBeforeWorkers() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-send-before-workers.bal");
         Assert.assertEquals(result.getErrorCount(), 1);
-        BAssertUtil.validateError(result, 0, "undefined worker 'w1'", 3, 3);
+        validateError(result, 0, "undefined worker 'w1'", 3, 3);
     }
 
     @Test
@@ -104,10 +105,26 @@ public class WorkerFailTest {
         CompileResult result =
                 BCompileUtil.compile("test-src/workers/invalid_receive_with_union_error_return_negative.bal");
         Assert.assertEquals(result.getErrorCount(), 3);
-        BAssertUtil.validateError(result, 0, "incompatible types: expected 'TrxError?', found 'FooError?'", 46, 29);
-        BAssertUtil.validateError(result, 1, "incompatible types: expected 'TrxError?', " +
+        validateError(result, 0, "incompatible types: expected 'TrxError?', found 'FooError?'", 46, 29);
+        validateError(result, 1, "incompatible types: expected 'TrxError?', " +
                                           "found '(FooError|TrxError)?'", 47, 19);
-        BAssertUtil.validateError(result, 2, "incompatible types: expected '()', found '(FooError|TrxError)?'", 48, 16);
+        validateError(result, 2, "incompatible types: expected '()', found '(FooError|TrxError)?'", 48, 16);
+    }
+
+    @Test
+    public void testSendReceiveMismatch() {
+        CompileResult result = BCompileUtil.compile("test-src/workers/send_receive_mismatch_negative.bal");
+        Assert.assertEquals(result.getErrorCount(), 1);
+        validateError(result, 0, "incompatible types: expected 'string', found 'int'", 23, 21);
+    }
+
+    @Test
+    public void testSyncSendReceiveMismatch() {
+        CompileResult result = BCompileUtil.compile("test-src/workers/sync_send_receive_negative.bal");
+        Assert.assertEquals(result.getErrorCount(), 3);
+        validateError(result, 0, "variable assignment is required", 33, 9);
+        validateError(result, 1, "incompatible types: expected 'int', found '(E1|int)'", 37, 18);
+        validateError(result, 2, "incompatible types: expected 'string', found '(E1|E2|string)'", 42, 20);
     }
 
     @Test
@@ -148,25 +165,37 @@ public class WorkerFailTest {
     @Test
     public void invalidReceiveWithTrapWithNonError() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-receive-with-trap.bal");
-        String message = Arrays.toString(result.getDiagnostics());
-        Assert.assertEquals(result.getErrorCount(), 1, message);
-        Assert.assertTrue(message.contains("incompatible types"), message);
+        Assert.assertEquals(result.getErrorCount(), 2);
+        validateError(result, 0, "incompatible types: expected 'int', found '(int|error)'", 10, 15);
+        validateError(result, 1, "incompatible types: expected 'string', found '(string|error)'", 20, 18);
     }
 
     @Test
     public void invalidReceiveWithCheckWithNonError() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-receive-with-check.bal");
-        String message = Arrays.toString(result.getDiagnostics());
-        Assert.assertEquals(result.getErrorCount(), 1, message);
-        Assert.assertTrue(message.contains("no expression type is equivalent to error"), message);
+        Assert.assertEquals(result.getErrorCount(), 2);
+        validateError(result, 0, "invalid usage of the 'check' expression operator: no expression type is " +
+                "equivalent to error type", 10, 21);
+        validateError(result, 1, "invalid usage of the 'check' expression operator: no expression type is " +
+                "equivalent to error type", 23, 21);
+    }
+
+    @Test
+    public void invalidReceiveWithCheckpanic() {
+        CompileResult result = BCompileUtil.compile("test-src/workers/invalid_receive_with_checkpanic_negative.bal");
+        Assert.assertEquals(result.getErrorCount(), 2);
+        validateError(result, 0, "invalid usage of the 'checkpanic' expression operator: no expression type is " +
+                "equivalent to error type", 23, 31);
+        validateError(result, 1, "invalid usage of the 'checkpanic' expression operator: no expression type is " +
+                "equivalent to error type", 33, 31);
     }
 
     @Test
     public void invalidActionsInFork() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-actions-in-fork.bal");
         Assert.assertEquals(result.getErrorCount(), 2);
-        BAssertUtil.validateError(result, 0, "undefined worker 'w3'", 5, 13);
-        BAssertUtil.validateError(result, 1, "undefined worker 'w1'", 8, 29);
+        validateError(result, 0, "undefined worker 'w3'", 5, 13);
+        validateError(result, 1, "undefined worker 'w1'", 8, 29);
     }
 
     @Test
@@ -227,11 +256,11 @@ public class WorkerFailTest {
     public void invalidUsagesOfDefault() {
         CompileResult result = BCompileUtil.compile("test-src/workers/invalid-usage-of-default.bal");
         Assert.assertEquals(result.getErrorCount(), 6);
-        BAssertUtil.validateError(result, 0, "mismatched input 'default'. expecting Identifier", 18, 12);
-        BAssertUtil.validateError(result, 1, "mismatched input 'default'. expecting Identifier", 29, 16);
-        BAssertUtil.validateError(result, 2, "invalid token 'default'", 36, 12);
-        BAssertUtil.validateError(result, 3, "invalid token 'default'", 41, 9);
-        BAssertUtil.validateError(result, 4, "invalid token 'default'", 43, 13);
-        BAssertUtil.validateError(result, 5, "extraneous input 'default'", 44, 16);
+        validateError(result, 0, "mismatched input 'default'. expecting Identifier", 18, 12);
+        validateError(result, 1, "mismatched input 'default'. expecting Identifier", 29, 16);
+        validateError(result, 2, "invalid token 'default'", 36, 12);
+        validateError(result, 3, "invalid token 'default'", 41, 9);
+        validateError(result, 4, "invalid token 'default'", 43, 13);
+        validateError(result, 5, "extraneous input 'default'", 44, 16);
     }
 }

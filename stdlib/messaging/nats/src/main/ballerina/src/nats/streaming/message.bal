@@ -14,27 +14,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerinax/java;
+
 # Represents the message a NATS Streaming Server sends to a subscription service.
 public type StreamingMessage client object {
    private byte[] content;
-
    private string subject;
 
-   public function __init(string subject, byte[] content) {
+   function __init(string subject, byte[] content) {
        self.subject = subject;
        self.content = content;
    }
 
    # Get the message content.
    #
-   # + return - the data from the message as a 'byte[]'.
+   # + return - The data from the message as a 'byte[]'.
    public function getData() returns byte[] {
        return self.content;
    }
 
    # Get the subject.
    #
-   # + return - subject value.
+   # + return - The subject that this message was sent to.
    public function getSubject() returns string {
        return self.subject;
    }
@@ -42,5 +43,12 @@ public type StreamingMessage client object {
    # Acknowledge the NATS Streaming server upon the receipt of the message.
    #
    # + return - Returns () if the acknowledgment completes successfully or an error.
-   public remote function ack() returns Error? = external;
+   public remote function ack() returns Error? {
+       return externAck(self);
+   }
 };
+
+function externAck(StreamingMessage message) returns Error? =
+@java:Method {
+    class: "org.ballerinalang.nats.streaming.message.Ack"
+} external;
