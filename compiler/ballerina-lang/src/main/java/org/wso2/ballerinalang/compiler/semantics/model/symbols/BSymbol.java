@@ -99,4 +99,18 @@ public class BSymbol implements Symbol {
     public String toString() {
         return name.toString();
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (!(o instanceof BSymbol)) {
+            return false;
+        }
+
+        BSymbol sym = (BSymbol) o;
+        return this.name.equals(sym.name) && this.pkgID.equals(sym.pkgID) && this.owner.equals(sym.owner);
+    }
 }

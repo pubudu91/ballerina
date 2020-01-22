@@ -279,6 +279,7 @@ public class Desugar extends BLangNodeVisitor {
     private StreamingCodeDesugar streamingCodeDesugar;
     private AnnotationDesugar annotationDesugar;
     private InMemoryTableQueryBuilder inMemoryTableQueryBuilder;
+    private VarRefCollector varRefCollector;
     private Types types;
     private Names names;
     private ServiceDesugar serviceDesugar;
@@ -329,6 +330,7 @@ public class Desugar extends BLangNodeVisitor {
         this.names = Names.getInstance(context);
         this.names = Names.getInstance(context);
         this.serviceDesugar = ServiceDesugar.getInstance(context);
+        this.varRefCollector = VarRefCollector.getInstance(context);
     }
 
     public BLangPackage perform(BLangPackage pkgNode) {
@@ -6419,26 +6421,50 @@ public class Desugar extends BLangNodeVisitor {
         // Create the params
         Set<BSymbol> symbolsReferred = new HashSet<>();
         for (BLangSimpleVariable field : recordTypeNode.fields) {
-            if (field.expr != null && field.expr.getKind() == NodeKind.SIMPLE_VARIABLE_REF &&
-                    !(((BLangSimpleVarRef) field.expr).symbol.owner instanceof BPackageSymbol)) {
-                BSymbol localVarSym = ((BLangSimpleVarRef) field.expr).symbol;
+            Set<BSymbol> varRefSymbols = varRefCollector.collect(field.expr);
 
+            for (BSymbol varSym : varRefSymbols) {
+                if (varSym.owner instanceof BPackageSymbol) {
+                    continue;
+                }
                 // Avoid creating multiple params for same var ref
-                if (symbolsReferred.contains(localVarSym)) {
+                if (symbolsReferred.contains(varSym)) {
                     continue;
                 }
 
-                BVarSymbol paramSym = new BVarSymbol(0, localVarSym.name, this.env.scope.owner.pkgID, localVarSym.type,
+                BVarSymbol paramSym = new BVarSymbol(0, varSym.name, this.env.scope.owner.pkgID, varSym.type,
                                                      initFunction.symbol);
-                BLangSimpleVariable param = ASTBuilderUtil.createVariable(recordTypeNode.pos, localVarSym.name.value,
-                                                                          localVarSym.type, null, paramSym);
+                BLangSimpleVariable param = ASTBuilderUtil.createVariable(recordTypeNode.pos, varSym.name.value,
+                                                                          varSym.type, null, paramSym);
                 initFunction.symbol.scope.define(paramSym.name, paramSym);
                 initFunction.symbol.params.add(paramSym);
                 initFnType.paramTypes.add(param.type);
                 initFunction.requiredParams.add(param);
 
-                symbolsReferred.add(localVarSym);
+                symbolsReferred.add(varSym);
             }
+
+//            if (field.expr != null && field.expr.getKind() == NodeKind.SIMPLE_VARIABLE_REF &&
+//                    !(((BLangSimpleVarRef) field.expr).symbol.owner instanceof BPackageSymbol)) {
+//                BSymbol localVarSym = ((BLangSimpleVarRef) field.expr).symbol;
+//
+//                // Avoid creating multiple params for same var ref
+//                if (symbolsReferred.contains(localVarSym)) {
+//                    continue;
+//                }
+//
+//                BVarSymbol paramSym = new BVarSymbol(0, localVarSym.name, this.env.scope.owner.pkgID, localVarSym
+//                .type,
+//                                                     initFunction.symbol);
+//                BLangSimpleVariable param = ASTBuilderUtil.createVariable(recordTypeNode.pos, localVarSym.name.value,
+//                                                                          localVarSym.type, null, paramSym);
+//                initFunction.symbol.scope.define(paramSym.name, paramSym);
+//                initFunction.symbol.params.add(paramSym);
+//                initFnType.paramTypes.add(param.type);
+//                initFunction.requiredParams.add(param);
+//
+//                symbolsReferred.add(localVarSym);
+//            }
         }
 
         // Add return type as nil to the symbol
