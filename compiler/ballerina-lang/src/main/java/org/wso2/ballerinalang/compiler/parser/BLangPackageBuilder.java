@@ -284,6 +284,8 @@ public class BLangPackageBuilder {
     private Stack<Set<Whitespace>> simpleMatchPatternWS = new Stack<>();
     private Stack<Set<Whitespace>> recordKeyWS = new Stack<>();
 
+    private long isInErrorType = 0;
+
     private BLangAnonymousModelHelper anonymousModelHelper;
     private CompilerOptions compilerOptions;
     private SymbolTable symTable;
@@ -365,7 +367,7 @@ public class BLangPackageBuilder {
         recordTypeNode.sealed = isExclusiveTypeDesc && !hasRestField;
         recordTypeNode.restFieldType = restFieldType;
 
-        if (!isAnonymous) {
+        if (!isAnonymous || isInLocalDefinition()) {
             addType(recordTypeNode);
             return;
         }
@@ -389,10 +391,16 @@ public class BLangPackageBuilder {
         recordTypeNode.pos = pos;
         recordTypeNode.addWS(ws);
         recordTypeNode.isAnonymous = isAnonymous;
+        recordTypeNode.isLocal = isInLocalDefinition();
         this.varListStack.pop().forEach(variableNode -> {
             recordTypeNode.addField((SimpleVariableNode) variableNode);
         });
         return recordTypeNode;
+    }
+
+    private boolean isInLocalDefinition() {
+        // TODO: When supporting local defs for errors, need to get rid of the second condition
+        return !this.blockNodeStack.isEmpty() && this.isInErrorType <= 0;
     }
 
     void addFieldVariable(DiagnosticPos pos, Set<Whitespace> ws, String identifier, DiagnosticPos identifierPos,
@@ -470,6 +478,14 @@ public class BLangPackageBuilder {
         addType(refType);
     }
 
+    void startErrorType() {
+        this.isInErrorType++;
+    }
+
+    void endErrorType() {
+        this.isInErrorType--;
+    }
+
     void addErrorType(DiagnosticPos pos, Set<Whitespace> ws, boolean reasonTypeExists, boolean detailsTypeExists,
                       boolean isAnonymous) {
         BLangErrorType errorType = (BLangErrorType) TreeBuilder.createErrorTypeNode();
@@ -481,6 +497,8 @@ public class BLangPackageBuilder {
         if (reasonTypeExists) {
             errorType.reasonType = (BLangType) this.typeNodeStack.pop();
         }
+
+        endErrorType();
 
         if (!isAnonymous) {
             addType(errorType);
