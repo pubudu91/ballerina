@@ -149,6 +149,7 @@ public class SymbolTable {
     public BPackageSymbol langTypedescModuleSymbol;
     public BPackageSymbol langValueModuleSymbol;
     public BPackageSymbol langXmlModuleSymbol;
+    public BPackageSymbol langBooleanModuleSymbol;
 
     private Names names;
     public Map<BPackageSymbol, SymbolEnv> pkgEnvMap = new HashMap<>();
