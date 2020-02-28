@@ -74,6 +74,7 @@ function genJMethodForBFunc(bir:Function func,
 
     // generate method desc
     string desc = getMethodDesc(func.typeValue.paramTypes, <bir:BType?> func.typeValue?.retType, useBString = useBString);
+    io:println(funcName, " : ", desc);
     int access = ACC_PUBLIC;
     int localVarOffset;
     if !(attachedType is ()) {
