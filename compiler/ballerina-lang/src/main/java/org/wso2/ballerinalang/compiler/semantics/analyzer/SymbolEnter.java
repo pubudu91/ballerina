@@ -1911,7 +1911,8 @@ public class SymbolEnter extends BLangNodeVisitor {
                                                                                     invokableSymbol.flags,
                                                                                     env.enclPkg.symbol.pkgID,
                                                                                     invokableSymbol.type,
-                                                                                    env.scope.owner, invokableNode.pos);
+                                                                                    env.scope.owner, invokableNode.pos,
+                                                                                    SOURCE);
         functionTypeSymbol.params = invokableSymbol.params;
         functionTypeSymbol.returnType = invokableSymbol.retType;
 
