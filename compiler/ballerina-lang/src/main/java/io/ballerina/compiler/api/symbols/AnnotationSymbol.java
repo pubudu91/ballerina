@@ -20,7 +20,6 @@ package io.ballerina.compiler.api.symbols;
 import io.ballerina.compiler.api.types.BallerinaTypeDescriptor;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Represent Annotation Symbol.
@@ -34,7 +33,7 @@ public interface AnnotationSymbol extends Symbol, Qualifiable, Deprecatable {
      *
      * @return {@link BallerinaTypeDescriptor} type descriptor of the annotation
      */
-    Optional<BallerinaTypeDescriptor> typeDescriptor();
+    BallerinaTypeDescriptor typeDescriptor();
 
     /**
      * Get the attached points.

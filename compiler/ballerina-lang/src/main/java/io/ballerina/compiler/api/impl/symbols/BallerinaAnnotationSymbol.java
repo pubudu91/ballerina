@@ -74,8 +74,8 @@ public class BallerinaAnnotationSymbol extends BallerinaSymbol implements Annota
      * @return {@link Optional} type descriptor of the annotation
      */
     @Override
-    public Optional<BallerinaTypeDescriptor> typeDescriptor() {
-        return Optional.ofNullable(typeDescriptor);
+    public BallerinaTypeDescriptor typeDescriptor() {
+        return this.typeDescriptor;
     }
 
     /**
