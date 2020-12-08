@@ -90,6 +90,7 @@ public enum TypeKind {
     HANDLE("handle"),
     READONLY("readonly"),
     TYPEPARAM("typeparam"),
+    TYPE_REFERENCE("type-reference")
     ;
 
     private String name;

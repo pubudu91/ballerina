@@ -79,6 +79,7 @@ public class TypeTags {
 
     public static final int NULL_SET = NEVER + 1;
     public static final int PARAMETERIZED_TYPE = NULL_SET + 1;
+    public static final int TYPE_REFERENCE = PARAMETERIZED_TYPE + 1;
 
     private TypeTags() {
 
