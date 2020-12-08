@@ -62,6 +62,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeIdSet;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLType;
@@ -1338,7 +1339,7 @@ public class SymbolResolver extends BLangNodeVisitor {
             return;
         }
 
-        resultType = symbol.type;
+        resultType =  new BTypeReferenceType((BTypeSymbol) symbol);
     }
 
     private ParameterizedTypeInfo getTypedescParamValueType(List<BLangSimpleVariable> params, BSymbol varSym) {

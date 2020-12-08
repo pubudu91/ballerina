@@ -40,6 +40,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BStreamType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeVisitor;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
@@ -389,6 +390,11 @@ public class ResolvedTypeBuilder implements BTypeVisitor<BType, BType> {
             type = ((BTypedescType) originalType.paramSymbol.type).constraint;
         }
         return type;
+    }
+
+    @Override
+    public BType visit(BTypeReferenceType originalType, BType newType) {
+        return originalType;
     }
 
     private void createParamMap(BLangInvocation invocation) {

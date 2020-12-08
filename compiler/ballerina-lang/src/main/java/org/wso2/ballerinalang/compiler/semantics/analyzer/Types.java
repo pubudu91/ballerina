@@ -59,6 +59,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BStructureType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeVisitor;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
@@ -608,6 +609,14 @@ public class Types {
 
         if (sourceTag == TypeTags.PARAMETERIZED_TYPE) {
             return isParameterizedTypeAssignable(source, target, unresolvedTypes);
+        }
+
+        if (sourceTag == TypeTags.TYPE_REFERENCE) {
+            return isAssignable(((BTypeReferenceType) source).type, target, unresolvedTypes);
+        }
+
+        if (targetTag == TypeTags.TYPE_REFERENCE) {
+            return isAssignable(source, ((BTypeReferenceType) target).type, unresolvedTypes);
         }
 
         if (sourceTag == TypeTags.BYTE && targetTag == TypeTags.INT) {
@@ -2362,6 +2371,14 @@ public class Types {
             return isSameType(sType.paramValueType, t.paramValueType) && sType.paramSymbol.equals(t.paramSymbol);
         }
 
+        @Override
+        public Boolean visit(BTypeReferenceType t, BType s) {
+            if (s.tag != TypeTags.TYPE_REFERENCE) {
+                return false;
+            }
+
+            return isSameType(s, t, this.unresolvedTypes);
+        }
     };
 
     private boolean checkFieldEquivalency(BRecordType lhsType, BRecordType rhsType, Set<TypePair> unresolvedTypes) {

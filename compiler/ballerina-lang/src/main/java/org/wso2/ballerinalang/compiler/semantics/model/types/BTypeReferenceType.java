@@ -33,10 +33,12 @@ import org.wso2.ballerinalang.compiler.util.TypeTags;
  */
 public class BTypeReferenceType extends BType implements TypeReference {
 
-    public BType type;
+    public final BType type;
 
     public BTypeReferenceType(BTypeSymbol tsymbol) {
         super(TypeTags.TYPE_REFERENCE, tsymbol);
+        this.type = tsymbol.type;
+        this.flags = tsymbol.flags;
     }
 
     @Override
