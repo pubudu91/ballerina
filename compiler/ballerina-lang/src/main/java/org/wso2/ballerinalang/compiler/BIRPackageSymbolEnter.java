@@ -76,6 +76,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeIdSet;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLType;
@@ -1178,6 +1179,13 @@ public class BIRPackageSymbolEnter {
 
                     BType effectiveType = readTypeFromCp();
                     return new BIntersectionType(intersectionTypeSymbol, constituentTypes, effectiveType, flags);
+                case TypeTags.TYPE_REFERENCE:
+                    pkgCpIndex = inputStream.readInt();
+                    pkgId = getPackageId(pkgCpIndex);
+                    String typeName = getStringCPEntryValue(inputStream);
+                    pkgEnv = symTable.pkgEnvMap.get(packageCache.getSymbol(pkgId));
+                    BSymbol typeSymbol = symbolResolver.lookupSymbolInMainSpace(pkgEnv, names.fromString(typeName));
+                    return new BTypeReferenceType((BTypeSymbol) typeSymbol);
                 case TypeTags.PACKAGE:
                     // TODO fix
                     break;
@@ -1346,8 +1354,6 @@ public class BIRPackageSymbolEnter {
                 case TypeTags.FUNCTION_POINTER:
                     // TODO fix
                     break;
-                case SERVICE_TYPE_TAG:
-                    throw new AssertionError();
                 case TypeTags.SIGNED32_INT:
                     return symTable.signed32IntType;
                 case TypeTags.SIGNED16_INT:

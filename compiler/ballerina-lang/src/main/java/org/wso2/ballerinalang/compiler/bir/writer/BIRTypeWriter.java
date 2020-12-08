@@ -60,6 +60,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeIdSet;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLType;
@@ -424,6 +425,16 @@ public class BIRTypeWriter implements TypeVisitor {
         if (bTableType.keyTypeConstraint != null) {
             writeTypeCpIndex(bTableType.keyTypeConstraint);
         }
+    }
+
+    @Override
+    public void visit(BTypeReferenceType bTypeRef) {
+        int orgCPIndex = addStringCPEntry(bTypeRef.tsymbol.pkgID.orgName.value);
+        int nameCPIndex = addStringCPEntry(bTypeRef.tsymbol.pkgID.name.value);
+        int versionCPIndex = addStringCPEntry(bTypeRef.tsymbol.pkgID.version.value);
+        int pkgIndex = cp.addCPEntry(new PackageCPEntry(orgCPIndex, nameCPIndex, versionCPIndex));
+        buff.writeInt(pkgIndex);
+        buff.writeInt(addStringCPEntry(bTypeRef.tsymbol.name.value));
     }
 
     public void writeMarkdownDocAttachment(ByteBuf buf, MarkdownDocAttachment markdownDocAttachment) {
