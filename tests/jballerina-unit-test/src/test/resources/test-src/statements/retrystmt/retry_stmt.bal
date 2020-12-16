@@ -61,8 +61,6 @@ function trxError()  returns error {
     return error("TransactionError");
 }
 
-type AssertionError error;
-
 const ASSERTION_ERROR_REASON = "AssertionError";
 
 function assertEquality(any|error expected, any|error actual) {
@@ -74,5 +72,5 @@ function assertEquality(any|error expected, any|error actual) {
         return;
    }
 
-    panic AssertionError(ASSERTION_ERROR_REASON, message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
+    panic error(ASSERTION_ERROR_REASON, message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
 }

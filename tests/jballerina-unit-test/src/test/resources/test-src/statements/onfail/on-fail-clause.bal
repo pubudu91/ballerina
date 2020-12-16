@@ -226,5 +226,5 @@ function assertEquality(any|error expected, any|error actual) {
         return;
     }
 
-    panic AssertionError("AssertionError", message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
+    panic error AssertionError("AssertionError", message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
 }

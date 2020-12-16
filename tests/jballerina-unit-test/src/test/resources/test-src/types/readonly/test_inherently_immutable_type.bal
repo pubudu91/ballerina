@@ -79,7 +79,7 @@ function testSimpleAssignmentForInherentlyImmutableBasicTypes() {
     assertEquality("Reason", errorVal.message());
     assertEquality("error message", errorVal.detail()["message"]);
 
-    error myError = AssertionError(ASSERTION_ERROR_REASON, message = "second error message");
+    error myError = error(ASSERTION_ERROR_REASON, message = "second error message");
     readonly i = myError;
     assertTrue(i is error);
     errorVal = <error> i;
@@ -134,7 +134,7 @@ function testRuntimeIsTypeForInherentlyImmutableBasicTypes() {
     any|error h = err;
     assertTrue(h is readonly);
 
-    error myError = AssertionError(ASSERTION_ERROR_REASON, message = "second error message");
+    error myError = error(ASSERTION_ERROR_REASON, message = "second error message");
     any|error i = myError;
     assertTrue(i is readonly);
 
@@ -164,8 +164,6 @@ function testRuntimeIsTypeForNeverImmutableBasicTypes() {
     any b = arr.toStream();
     assertFalse(b is readonly);
 }
-
-type AssertionError distinct error;
 
 type Employee record {
     string name;
@@ -199,5 +197,5 @@ function assertEquality(any|error expected, any|error actual) {
         return;
     }
 
-    panic AssertionError(ASSERTION_ERROR_REASON, message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
+    panic error(ASSERTION_ERROR_REASON, message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
 }

@@ -79,8 +79,6 @@ function assertEquality(any|error expected, any|error actual) {
         return;
     }
 
-    panic AssertionError("Assertion Error",
+    panic error("Assertion Error",
             message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
 }
-
-type AssertionError error;
