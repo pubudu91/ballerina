@@ -417,7 +417,7 @@ function testToString() returns string[] {
     map<any|error> varMap = {};
     json varJson = {a: "STRING", b: 12, c: 12.4, d: true, e: {x:"x", y: ()}};
     any[] varArr = ["str", 23, 23.4, true];
-    FirstError varErr = FirstError(REASON_1, message = "Test passing error union to a function");
+    FirstError varErr = error FirstError(REASON_1, message = "Test passing error union to a function");
     Student varObj = new("Alaa", "MMV");
     Teacher varObj2 = new("Rola", "MMV");
     any[] varObjArr = [varObj, varObj2];
@@ -472,7 +472,7 @@ function assertEquality(any|error expected, any|error actual) {
         return;
     }
 
-    panic AssertionError(ASSERTION_ERROR_REASON,
+    panic error AssertionError(ASSERTION_ERROR_REASON,
             message = "expected '" + expected.toString() + "', found '" + actual.toString () + "'");
 }
 
