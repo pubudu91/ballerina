@@ -46,6 +46,7 @@ import org.eclipse.lsp4j.CompletionItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -163,7 +164,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         String name = ((SimpleNameReferenceNode) referenceNode).name().text();
         List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
         Optional<Symbol> symbolRef = visibleSymbols.stream()
-                .filter(symbol -> symbol.name().equals(name))
+                .filter(symbol -> Objects.equals(symbol.getName().orElse(null), name))
                 .findFirst();
         if (symbolRef.isEmpty()) {
             return Optional.empty();
@@ -177,7 +178,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         String fName = ((SimpleNameReferenceNode) expr.functionName()).name().text();
         List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
         Optional<FunctionSymbol> symbolRef = visibleSymbols.stream()
-                .filter(symbol -> symbol.name().equals(fName) && symbol.kind() == SymbolKind.FUNCTION)
+                .filter(symbol -> symbol.kind() == SymbolKind.FUNCTION && symbol.getName().get().equals(fName))
                 .map(symbol -> (FunctionSymbol) symbol)
                 .findFirst();
         if (symbolRef.isEmpty()) {
@@ -202,7 +203,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
             visibleMethods.addAll(((ObjectTypeSymbol) rawType).methods().values());
         }
         Optional<FunctionSymbol> filteredMethod = visibleMethods.stream()
-                .filter(methodSymbol -> methodSymbol.name().equals(methodName))
+                .filter(methodSymbol -> methodSymbol.getName().get().equals(methodName))
                 .findFirst();
 
         if (filteredMethod.isEmpty()) {

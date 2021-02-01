@@ -86,7 +86,7 @@ public class BLangRecordLiteralUtil {
         if (canSpread && symbol.kind() == SymbolKind.FUNCTION) {
             cItem = FunctionCompletionItemBuilder.build((FunctionSymbol) symbol, context);
         } else if (canSpread) {
-            cItem = VariableCompletionItemBuilder.build((VariableSymbol) symbol, symbol.name(),
+            cItem = VariableCompletionItemBuilder.build((VariableSymbol) symbol, symbol.getName().get(),
                     typeDescriptor.get().signature());
         } else {
             return Optional.empty();

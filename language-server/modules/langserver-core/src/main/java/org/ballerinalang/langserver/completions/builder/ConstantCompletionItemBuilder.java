@@ -44,8 +44,8 @@ public class ConstantCompletionItemBuilder {
      */
     public static CompletionItem build(ConstantSymbol constantSymbol) {
         CompletionItem completionItem = new CompletionItem();
-        completionItem.setLabel(constantSymbol.name());
-        completionItem.setInsertText(constantSymbol.name());
+        completionItem.setLabel(constantSymbol.getName().get());
+        completionItem.setInsertText(constantSymbol.getName().get());
         completionItem.setDetail(constantSymbol.typeDescriptor().signature());
         completionItem.setDocumentation(getDocumentation(constantSymbol));
         completionItem.setKind(CompletionItemKind.Variable);
