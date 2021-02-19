@@ -57,6 +57,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BObjectTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BPackageSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BParamSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BRecordTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BResourceFunction;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
@@ -3618,7 +3619,7 @@ public class SymbolEnter extends BLangNodeVisitor {
             return;
         }
 
-        BVarSymbol varSymbol = createVarSymbol(symbol.flags, type, symbol.name, targetEnv, symbol.pos, isInternal);
+        BVarSymbol varSymbol = createVarSymbol(symbol, type, targetEnv, isInternal);
         if (type.tag == TypeTags.INVOKABLE && type.tsymbol != null) {
             BInvokableTypeSymbol tsymbol = (BInvokableTypeSymbol) type.tsymbol;
             BInvokableSymbol invokableSymbol = (BInvokableSymbol) varSymbol;
@@ -3660,22 +3661,44 @@ public class SymbolEnter extends BLangNodeVisitor {
         env.scope.define(varSymbol.name, varSymbol);
     }
 
-    public BVarSymbol createVarSymbol(Set<Flag> flagSet, BType varType, Name varName, SymbolEnv env,
-                                      Location pos, boolean isInternal) {
-        return createVarSymbol(Flags.asMask(flagSet), varType, varName, env, pos, isInternal);
+    private BVarSymbol createVarSymbol(Set<Flag> flagSet, BType varType, Name varName, SymbolEnv env,
+                                       Location pos, boolean isInternal) {
+        BParamSymbol.ParamKind paramKind = null;
+        if (flagSet.contains(Flag.REQUIRED_PARAM)) {
+            paramKind = BParamSymbol.ParamKind.REQUIRED;
+        } else if (flagSet.contains(Flag.DEFAULTABLE_PARAM)) {
+            paramKind = BParamSymbol.ParamKind.DEFAULTABLE;
+        } else if (flagSet.contains(Flag.REST_PARAM)) {
+            paramKind = BParamSymbol.ParamKind.REST;
+        }
+        return createVarSymbol(Flags.asMask(flagSet), varType, varName, env, pos, isInternal, paramKind);
     }
 
-    public BVarSymbol createVarSymbol(long flags, BType varType, Name varName, SymbolEnv env,
-                                      Location location, boolean isInternal) {
+    private BVarSymbol createVarSymbol(BVarSymbol symbol, BType type, SymbolEnv env, boolean isInternal) {
+        BParamSymbol.ParamKind paramKind = null;
+        if (symbol.getKind() == SymbolKind.PARAMETER) {
+            paramKind = ((BParamSymbol) symbol).getParamKind();
+        }
+        return createVarSymbol(symbol.flags, type, symbol.name, env, symbol.pos, isInternal, paramKind);
+    }
+
+    private BVarSymbol createVarSymbol(long flags, BType varType, Name varName, SymbolEnv env,
+                                       Location location, boolean isInternal, BParamSymbol.ParamKind paramKind) {
         BType safeType = types.getSafeType(varType, true, false);
+        SymbolOrigin origin = isInternal ? VIRTUAL : getOrigin(varName);
         BVarSymbol varSymbol;
         if (safeType.tag == TypeTags.INVOKABLE) {
             varSymbol = new BInvokableSymbol(SymTag.VARIABLE, flags, varName, env.enclPkg.symbol.pkgID, varType,
-                                             env.scope.owner, location, isInternal ? VIRTUAL : getOrigin(varName));
+                                             env.scope.owner, location, origin);
             varSymbol.kind = SymbolKind.FUNCTION;
         } else {
-            varSymbol = new BVarSymbol(flags, varName, env.enclPkg.symbol.pkgID, varType, env.scope.owner, location,
-                                       isInternal ? VIRTUAL : getOrigin(varName));
+            if (paramKind == null) {
+                varSymbol = new BVarSymbol(flags, varName, env.enclPkg.symbol.pkgID, varType, env.scope.owner, location,
+                                           origin);
+            } else {
+                varSymbol = new BParamSymbol(flags, varName, env.enclPkg.symbol.pkgID, varType, env.scope.owner,
+                                             location, paramKind, origin);
+            }
             if (varType.tsymbol != null && Symbols.isFlagOn(varType.tsymbol.flags, Flags.CLIENT)) {
                 varSymbol.tag = SymTag.ENDPOINT;
             }

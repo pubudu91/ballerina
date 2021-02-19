@@ -2955,6 +2955,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
     public BLangNode transform(RequiredParameterNode requiredParameter) {
         BLangSimpleVariable simpleVar = createSimpleVar(requiredParameter.paramName(),
                                                         requiredParameter.typeName(), requiredParameter.annotations());
+        simpleVar.flagSet.add(Flag.REQUIRED_PARAM);
         simpleVar.pos = getPosition(requiredParameter);
         if (requiredParameter.paramName().isPresent()) {
             simpleVar.name.pos = getPosition(requiredParameter.paramName().get());
@@ -2983,7 +2984,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
                                                         defaultableParameter.annotations());
 
         simpleVar.setInitialExpression(createExpression(defaultableParameter.expression()));
-
+        simpleVar.flagSet.add(Flag.DEFAULTABLE_PARAM);
         simpleVar.pos = getPosition(defaultableParameter);
         return simpleVar;
     }
@@ -2997,6 +2998,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         bLArrayType.elemtype = bLSimpleVar.typeNode;
         bLArrayType.dimensions = 1;
         bLSimpleVar.typeNode = bLArrayType;
+        bLSimpleVar.flagSet.add(Flag.REST_PARAM);
         bLArrayType.pos = getPosition(restParameter.typeName());
 
         bLSimpleVar.pos = getPosition(restParameter);
